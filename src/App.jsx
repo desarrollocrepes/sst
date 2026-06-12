@@ -5,6 +5,9 @@ import {
   LogOut, Users, FileText, Briefcase, MapPin, Phone, Mail,
   RefreshCw, ChevronRight, Activity, UserCircle
 } from 'lucide-react';
+import { 
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
 
 const STRAPI_BASE_URL = 'https://macfer.crepesywaffles.com/api';
 
@@ -48,6 +51,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
   const [selectedEmpId, setSelectedEmpId] = useState('');
   const [reportType, setReportType] = useState('Incidente');
   const [peso, setPeso] = useState('');
@@ -59,6 +66,11 @@ export default function App() {
   const [newNote, setNewNote] = useState('');
   const [newStatus, setNewStatus] = useState('');
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+
+  // Reiniciar página al buscar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // --- LOGIC ---
   const mapStrapiToApp = (strapiData, bukUsers) => {
@@ -97,6 +109,15 @@ export default function App() {
     });
   };
 
+    // Datos para Recharts
+  const pieData = useMemo(() => {
+    const counts = reports.reduce((acc, curr) => {
+      acc[curr.type] = (acc[curr.type] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
+  }, [reports]);
+  
   const fetchReports = async () => {
     if (!currentUser) return;
     setLoadingData(true);
@@ -162,7 +183,7 @@ export default function App() {
       setPeso('');
       setTalla('');
       setSelectedEmpId('');
-      setActiveTab('tickets');
+      setActiveTab('dashboard');
       await fetchReports();
       
     } catch (error) {
@@ -223,12 +244,26 @@ export default function App() {
     ticket.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Lógica de Paginación
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredTickets.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+
   const stats = {
     total: reports.length,
     open: reports.filter(t => t.status === 'Abierto').length,
     inProgress: reports.filter(t => t.status === 'En Seguimiento').length,
     closed: reports.filter(t => t.status === 'Cerrado').length
   };
+
+  const barData = [
+    { name: 'Abierto', casos: stats.open },
+    { name: 'Seguimiento', casos: stats.inProgress },
+    { name: 'Cerrado', casos: stats.closed }
+  ];
+  
+  const CHART_COLORS = ['#6d4c41', '#8d6e63', '#bcaaa4', '#e7c6b5', '#a1887f'];
 
   const renderDashboard = () => (
     <div className="view-container">
@@ -239,7 +274,7 @@ export default function App() {
             <p className="stat-title">{currentUser.role === 'LIDER' ? 'Mis Reportes' : 'Total Casos'}</p>
             <p className="stat-value">{stats.total}</p>
           </div>
-          <div className="stat-icon icon-blue"><Ticket size={24} /></div>
+          <div className="stat-icon icon-coffee"><Ticket size={24} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-info">
@@ -264,86 +299,148 @@ export default function App() {
         </div>
       </div>
 
-          <div className="view-container">
-      <div className="view-header">
-        <h2>{currentUser.role === 'LIDER' ? 'Casos Reportados' : 'Bandeja de Casos SST'}</h2>
-        {currentUser.role === 'LIDER' && (
-          <button onClick={() => setActiveTab('new')} className="btn btn-primary">
-            <Plus size={20} /> Nuevo Reporte
-          </button>
-        )}
-      </div>
-
-      <div className="card table-card">
-        <div className="table-toolbar">
-          <div className="search-wrapper">
-            <Search className="search-icon" size={20} />
-            <input 
-              type="text" 
-              placeholder="Buscar por colaborador, ID o detalle..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-control"
-            />
+      {currentUser.role === 'SST' && reports.length > 0 && (
+        <div className="charts-grid">
+          <div className="chart-card">
+            <h3 className="section-title">Distribución por Tipo de Caso</h3>
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label>
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="chart-card">
+            <h3 className="section-title">Estado Actual de Casos</h3>
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={barData}>
+                  <XAxis dataKey="name" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="casos" fill="#5d4037" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID / Fecha</th>
-                <th>Colaborador</th>
-                <th>Detalle / Tipo</th>
-                <th>Estado</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTickets.map(ticket => (
-                <tr key={ticket.id}>
-                  <td>
-                    <p className="font-bold">{ticket.id}</p>
-                     <p className="text-small text-muted">{ticket.date}</p>
-                  </td>
-                  <td>
-                    <p className="font-bold">{ticket.employeeName}</p>
-                    <p className="text-small text-muted">CC: {ticket.employeeId}</p>
-                    {currentUser.role === 'SST' && (
-                      <p className="text-small text-primary strong">Líder: {ticket.leaderDocument}</p>
-                    )}
-                  </td>
-                  <td>
-                    <p className="font-bold">{ticket.type}</p>
-                    <p className="text-small text-muted truncate">{ticket.description}</p>
-                  </td>
-                  <td>
-                    <StatusBadge status={ticket.status} />
-                  </td>
-                  <td>
-                    <button onClick={() => handleOpenCase(ticket)} className="btn btn-outline-primary btn-sm">
-                      {currentUser.role === 'SST' ? 'Gestionar' : 'Ver Detalles'} <ChevronRight size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filteredTickets.length === 0 && !loadingData && (
+      <div className="view-container">
+        <div className="view-header mt-4">
+          <h2>{currentUser.role === 'LIDER' ? 'Casos Reportados' : 'Bandeja de Casos SST'}</h2>
+          {currentUser.role === 'LIDER' && (
+            <button onClick={() => setActiveTab('new')} className="btn btn-primary">
+              <Plus size={20} /> Nuevo Reporte
+            </button>
+          )}
+        </div>
+
+        <div className="card table-card">
+          <div className="table-toolbar">
+            <div className="search-wrapper">
+              <Search className="search-icon" size={20} />
+              <input 
+                type="text" 
+                placeholder="Buscar por colaborador, ID o detalle..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="form-control"
+              />
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan="5" className="text-center p-large text-muted">
-                    No hay casos registrados o que coincidan con la búsqueda.
-                  </td>
+                  <th>ID / Fecha</th>
+                  <th>Colaborador</th>
+                  <th>Detalle / Tipo</th>
+                  <th>Estado</th>
+                  <th>Acción</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {currentItems.map(ticket => (
+                  <tr key={ticket.id}>
+                    <td>
+                      <p className="font-bold">{ticket.id}</p>
+                      <p className="text-small text-muted">{ticket.date}</p>
+                    </td>
+                    <td>
+                      <div className="employee-table-info">
+                        {ticket.employeeDetails?.foto ? (
+                          <img src={ticket.employeeDetails.foto} alt="Foto" className="avatar-sm" />
+                        ) : (
+                          <div className="avatar-sm placeholder">{ticket.employeeName.charAt(0)}</div>
+                        )}
+                        <div>
+                          <p className="font-bold">{ticket.employeeName}</p>
+                          <p className="text-small text-muted">CC: {ticket.employeeId}</p>
+                          {currentUser.role === 'SST' && (
+                            <p className="text-small text-primary strong">Líder: {ticket.leaderDocument}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <p className="font-bold">{ticket.type}</p>
+                      <p className="text-small text-muted truncate">{ticket.description}</p>
+                    </td>
+                    <td>
+                      <StatusBadge status={ticket.status} />
+                    </td>
+                    <td>
+                      <button onClick={() => handleOpenCase(ticket)} className="btn btn-outline-primary btn-sm">
+                        {currentUser.role === 'SST' ? 'Gestionar' : 'Ver Detalles'} <ChevronRight size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {currentItems.length === 0 && !loadingData && (
+                  <tr>
+                    <td colSpan="5" className="text-center p-large text-muted py-4">
+                      No hay casos registrados o que coincidan con la búsqueda.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button 
+                disabled={currentPage === 1} 
+                onClick={() => setCurrentPage(p => p - 1)} 
+                className="btn btn-secondary btn-sm"
+              >
+                Anterior
+              </button>
+              <span className="text-small font-bold text-muted">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button 
+                disabled={currentPage === totalPages} 
+                onClick={() => setCurrentPage(p => p + 1)} 
+                className="btn btn-secondary btn-sm"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
-    </div>
-  );
-
-  const renderTickets = () => (
-    <div></div>
   );
 
   const renderNewTicket = () => {
@@ -410,7 +507,7 @@ export default function App() {
           </div>
 
           <div className="form-actions">
-            <button type="button" className="btn btn-secondary">Cancelar</button>
+            <button type="button" onClick={() => setActiveTab('dashboard')} className="btn btn-secondary">Cancelar</button>
             <button disabled={isSubmittingReport || !selectedEmpId} type="submit" className="btn btn-primary">
               {isSubmittingReport ? 'Guardando...' : 'Enviar Reporte'}
             </button>
@@ -423,14 +520,12 @@ export default function App() {
   return (
     <>
       <div className="app-layout">
-        {/* Contenido Principal */}
         <main className="main-content">
           <header className="topbar">
             <div className="mobile-logo">
                <ShieldAlert className="text-primary" size={24} /> SafeDesk
             </div>
             <div className="topbar-title">
-
               <nav className="sidebar-nav">
                 <button onClick={() => setActiveTab('dashboard')} className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}>
                   <LayoutDashboard size={20} /> Dashboard
@@ -441,7 +536,6 @@ export default function App() {
                   </button>
                 )}
               </nav>
-              
             </div>
             
             <div className="topbar-actions">
@@ -452,7 +546,11 @@ export default function App() {
               <div className="divider"></div>
               <div className="user-profile">
                 <div className="user-avatar">
-                  <User size={16} />
+                  {currentUser.foto ? (
+                    <img src={currentUser.foto} alt="Perfil" className="avatar-xs" />
+                  ) : (
+                    <User size={16} />
+                  )}
                 </div>
                 <span className="user-name">{currentUser.name}</span>
               </div>
@@ -464,7 +562,6 @@ export default function App() {
 
           <div className="content-area">
             {activeTab === 'dashboard' && renderDashboard()}
-            {activeTab === 'tickets' && renderTickets()}
             {activeTab === 'new' && renderNewTicket()}
           </div>
 
@@ -472,7 +569,6 @@ export default function App() {
           {selectedReport && (
             <div className="modal-overlay">
               <div className="modal-window">
-                
                 <div className="modal-header">
                   <div>
                      <h2>Gestión del Caso: {selectedReport.id}</h2>
@@ -484,7 +580,6 @@ export default function App() {
                 </div>
                 
                 <div className="modal-body">
-                  {/* COLUMNA IZQUIERDA: Perfil */}
                   <div className="modal-col profile-col">
                     <div className="card profile-card">
                       <div className="profile-header">
@@ -537,7 +632,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* COLUMNA CENTRAL */}
                   <div className="modal-col details-col">
                     <div className="detail-section">
                       <h3 className="section-title"><FileText size={16}/> Detalles del Evento</h3>
@@ -576,7 +670,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* COLUMNA DERECHA: Timeline */}
                   <div className="modal-col timeline-col">
                     <h3 className="section-title"><Clock size={16}/> Línea de Tiempo</h3>
                     
@@ -638,7 +731,7 @@ function Login({ onLogin }) {
 
     try {
       const response = await fetch(`https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${document}`);
-      if (!response.ok) throw new Error('Error al conectar con Buk.');
+      if (!response.ok) throw new Error('Documento no encontrado');
       
       const jsonResponse = await response.json();
       const usersData = jsonResponse.data || [];
@@ -681,41 +774,43 @@ function Login({ onLogin }) {
   };
 
   return (
-    <>
-      <div className="login-wrapper">
-        <div className="login-card card">
-          <div className="login-header">
-            <div className="login-icon">
-              <ShieldAlert size={40} />
-            </div>
-            <h1>SST</h1>
-            <p>
-              SST 52917575 <br></br>
-              LIDER 79836500
-            </p>
-          </div>
+    <div className="login-split-wrapper">
+      <div className="login-left-panel">
+        <h1 className="login-left-title">
+          <ShieldAlert size={48} className="login-logo-icon" /> Portal SST
           
-          <form onSubmit={handleSubmit} className="login-form">
-            <div className="form-group">
-              <div className="input-with-icon">
-                <UserCircle className="icon-left" size={20} />
-                <input 
-                  type="number" 
-                  value={document}
-                  onChange={(e) => setDocument(e.target.value)}
-                  disabled={loading}
-                  className="form-control"
-                  placeholder="Ingrese su documento..."
-                />
-              </div>
+        </h1>
+        <br></br>39541384 doc. LIDER
+        <br></br>52917575 doc. SST
+      </div>
+      
+      <div className="login-right-panel">
+        <div className="login-form-container">
+          <h2 className="login-right-title">Bienvenido</h2>
+          <p className="login-right-subtitle">Usa tu número de documento para ingresar</p>
+          
+          <form onSubmit={handleSubmit} className="login-form-split">
+            <div className="form-group-split">
+              <input 
+                type="tel" 
+                value={document}
+                onChange={(e) => setDocument(e.target.value.replace(/\D/g, ''))}
+                disabled={loading}
+                className="form-control-large"
+                placeholder="Ej. 1020304050"
+              />
             </div>
-            {error && <p className="error-message">{error}</p>}
-            <button disabled={loading || !document} type="submit" className="btn btn-primary w-full">
-              {loading ? 'Verificando...' : 'Ingresar al Sistema'}
+            
+            {error && <p className="error-message-split">{error}</p>}
+            
+            <button disabled={loading || !document} type="submit" className="btn btn-primary btn-large w-full">
+              {loading ? 'Verificando...' : (
+                <>Continuar <ChevronRight size={20} /></>
+              )}
             </button>
           </form>
         </div>
       </div>
-    </>
+    </div>
   );
 }
