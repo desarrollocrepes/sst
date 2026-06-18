@@ -1,250 +1,43 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import './app.css';
 import { 
   LayoutDashboard, Ticket, AlertTriangle, Search, Plus, 
   User, CheckCircle2, Clock, AlertCircle, ShieldAlert,
-  LogOut, FileText, Briefcase, MapPin, Phone, Mail,
-  RefreshCw, ChevronRight, Activity, Calendar, Upload, AlertOctagon, HeartPulse, Shield, Lock
+  LogOut, Users, FileText, Briefcase, MapPin, Phone, Mail,
+  RefreshCw, ChevronRight, Activity, UserCircle
 } from 'lucide-react';
-import { 
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer 
-} from 'recharts';
+import './App.css'
 
 const STRAPI_BASE_URL = 'https://macfer.crepesywaffles.com/api';
 
-// --- Reusable Components (Pure CSS) ---
-const Button = ({ variant = 'default', size = 'default', className = '', children, ...props }) => {
-  return (
-    <button className={`btn btn-variant-${variant} btn-size-${size} ${className}`} {...props}>
-      {children}
-    </button>
-  );
-};
-
-const Badge = ({ variant = 'default', className = '', children, ...props }) => {
-  return (
-    <div className={`badge badge-variant-${variant} ${className}`} {...props}>
-      {children}
-    </div>
-  );
-};
-
-const Card = ({ className = '', children, ...props }) => (
-  <div className={`card ${className}`} {...props}>{children}</div>
-);
-const CardHeader = ({ className = '', children, ...props }) => (
-  <div className={`card-header ${className}`} {...props}>{children}</div>
-);
-const CardTitle = ({ className = '', children, ...props }) => (
-  <h3 className={`card-title ${className}`} {...props}>{children}</h3>
-);
-const CardDescription = ({ className = '', children, ...props }) => (
-  <p className={`card-description ${className}`} {...props}>{children}</p>
-);
-const CardContent = ({ className = '', children, ...props }) => (
-  <div className={`card-content ${className}`} {...props}>{children}</div>
-);
-const CardFooter = ({ className = '', children, ...props }) => (
-  <div className={`card-footer ${className}`} {...props}>{children}</div>
-);
-
-const Input = ({ className = '', ...props }) => (
-  <input className={`input-base input ${className}`} {...props} />
-);
-
-const Label = ({ className = '', children, ...props }) => (
-  <label className={`label ${className}`} {...props}>{children}</label>
-);
-
-const Textarea = ({ className = '', ...props }) => (
-  <textarea className={`input-base textarea ${className}`} {...props} />
-);
-
-const Select = ({ className = '', children, ...props }) => (
-  <select className={`input-base select ${className}`} {...props}>
-    {children}
-  </select>
-);
-
-// --- HELPER COMPONENTS & LOGIC ---
-const REPORT_CATEGORIES = [
-  "Incidente", "Accidente Leve", "Accidente Grave", "Condición Insegura", "Enfermedad Laboral",
-  "Reincorporación post incapacidad", "Recomendaciones medicas", "Recomendaciones nutricionales", "Incapacidades recurrentes"
-];
-
-const ACTION_CATEGORIES = [
-  "Compromiso autocuidado", "Reincoporacion laboral", "Acta de seguimiento", "Autorización de lonchera", "Cierre de reincorporación", "Otra"
-];
-
-const AFFECTED_SYSTEMS = [
-  "No Aplica", "Genitourinario", "Dermatológico", "Cardiovascular", "Gastrointestinal",
-  "Respiratorio", "Inmunologico", "Alimenticio", "Neurologico", "Neoplasias"
-];
-
-const STATUS_OPTIONS = ["Abierto", "Accion Realizada", "Retirado", "Cerrado"];
-
+// --- HELPER COMPONENTS ---
 const StatusBadge = ({ status }) => {
   const normalizedStatus = status?.toLowerCase() || '';
-  let variant = 'secondary';
+  let badgeClass = 'badge-default';
   
-  if (normalizedStatus.includes('abierto')) variant = 'destructive';
-  if (normalizedStatus.includes('accion')) variant = 'warning';
-  if (normalizedStatus.includes('retirado')) variant = 'secondary';
-  if (normalizedStatus.includes('cerrado')) variant = 'success';
+  if (normalizedStatus.includes('abierto')) badgeClass = 'badge-danger';
+  if (normalizedStatus.includes('seguimiento')) badgeClass = 'badge-warning';
+  if (normalizedStatus.includes('cerrado')) badgeClass = 'badge-success';
   
-  return <Badge variant={variant}>{status}</Badge>;
+  return (
+    <span className={`badge ${badgeClass}`}>
+      {status}
+    </span>
+  );
 };
 
 const calculateBMI = (peso, talla) => {
-  if (!peso || !talla) return { value: '-', label: 'N/A' };
+  if (!peso || !talla) return { value: '-', label: 'N/A', cssClass: 'bmi-default' };
   const imc = (peso / (talla * talla)).toFixed(1);
-  return { value: imc, label: imc < 18.5 ? 'Bajo peso' : imc < 25 ? 'Normal' : imc < 30 ? 'Sobrepeso' : 'Obesidad' };
+  let label = '';
+  let cssClass = '';
+  
+  if (imc < 18.5) { label = 'Bajo peso'; cssClass = 'bmi-low'; }
+  else if (imc >= 18.5 && imc < 25) { label = 'Peso normal'; cssClass = 'bmi-normal'; }
+  else if (imc >= 25 && imc < 30) { label = 'Sobrepeso'; cssClass = 'bmi-warning'; }
+  else { label = 'Obesidad'; cssClass = 'bmi-danger'; }
+  
+  return { value: imc, label, cssClass };
 };
-
-const calculateAge = (dobString) => {
-  if (!dobString) return null;
-  const age = new Date(Date.now() - new Date(dobString).getTime());
-  return Math.abs(age.getUTCFullYear() - 1970);
-};
-
-const calculateSeniority = (fechaIngreso) => {
-  if (!fechaIngreso) return 'Desconocida';
-  const ageDt = new Date(Date.now() - new Date(fechaIngreso).getTime());
-  const years = Math.abs(ageDt.getUTCFullYear() - 1970);
-  const months = ageDt.getUTCMonth();
-  return years === 0 ? `${months} meses` : `${years} años, ${months} meses`;
-};
-
-
-
-
-
-
-
-
-
-
-
-const Login = ({ onLogin }) => {
-  const [document, setDocument] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!document) return;
-    setLoading(true); setError('');
-
-    try {
-      const response = await fetch(`https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${document}`);
-      if (!response.ok) throw new Error('Documento no encontrado');
-      
-      const jsonResponse = await response.json();
-      const usersData = jsonResponse.data || [];
-      const user = usersData.find(u => String(u.document_number) === document);
-
-      if (!user) throw new Error('Documento no encontrado.');
-      if (user.status !== 'activo') throw new Error('El usuario se encuentra inactivo.');
-
-      let role = '';
-      let equipoActivo = [];
-
-      if (user.departamento === 'Seguridad y Salud en el Trabajo' && user.direction === 'Dirección Desarrollo Humano') {
-        role = 'SST';
-      } else if (user.lider === 1) {
-        role = 'LIDER';
-        if (user.equipo && Array.isArray(user.equipo)) equipoActivo = user.equipo.filter(emp => emp.status === 'activo');
-      } else {
-        throw new Error('No tiene los permisos requeridos.');
-      }
-
-      onLogin({
-        document: String(user.document_number), name: user.nombre, role: role,
-        pdv: user.area_nombre !== 'No Aplica' ? user.area_nombre : user.departamento,
-        area: user.area_nombre !== 'No Aplica' ? user.area_nombre : user.departamento,
-        equipo: equipoActivo, cargo: user.cargo, foto: user.foto,
-        departamento: user.departamento, direction: user.direction
-      }, usersData);
-    } catch (err) {
-      setError(err.message || 'Error al iniciar sesión.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-  <div className="login-page">
-    <Card className="login-card">
-      <CardHeader className="login-card-header">
-        <div className="login-logo-container">
-          <div className="login-logo">
-            <Shield size={24} color="#fff" />
-          </div>
-        </div>
-
-        <CardTitle className="login-title">
-          CardTitle
-        </CardTitle>
-
-        <CardDescription className="login-description">
-          CardDescription
-        </CardDescription>
-      </CardHeader>
-
-      <form onSubmit={handleSubmit}>
-        <CardContent className="login-card-content">
-          <div className="form-group">
-            <Label htmlFor="document">
-              Número de documento
-            </Label>
-
-            <div className="input-wrapper">
-              <Input
-                id="document"
-                type="tel"
-                value={document}
-                onChange={(e) =>
-                  setDocument(e.target.value.replace(/\D/g, ''))
-                }
-                disabled={loading}
-                placeholder="Ej. 1020304050"
-                className="document-input"
-              />
-            </div>
-          </div>
-        </CardContent>
-
-        <CardFooter className="login-card-footer">
-          {error && (
-            <p className="login-error">
-              {error}
-            </p>
-          )}
-
-          <Button
-            disabled={loading || !document}
-            type="submit"
-            className="login-button"
-          >
-            {loading ? (
-              'Verificando...'
-            ) : (
-              <span className="button-content">
-                Continuar
-                <ChevronRight
-                  size={18}
-                  style={{ marginLeft: '8px' }}
-                />
-              </span>
-            )}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
-  </div>
-);
-};
-
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
@@ -255,71 +48,53 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
 
   const [selectedEmpId, setSelectedEmpId] = useState('');
-  const [reportType, setReportType] = useState(REPORT_CATEGORIES[0]);
+  const [reportType, setReportType] = useState('Incidente');
   const [peso, setPeso] = useState('');
   const [talla, setTalla] = useState('');
   const [description, setDescription] = useState('');
-  const [pdfFile, setPdfFile] = useState(null);
-  const [genero, setGenero] = useState('');
-  const [fechaNacimiento, setFechaNacimiento] = useState('');
-  const [entidadCargo, setEntidadCargo] = useState('EPS');
-  const [nombreEntidad, setNombreEntidad] = useState('');
-  const [empData, setEmpData] = useState({ cargo: '', area_nombre: '', departamento: '', direction: '', celular: '', correo: '', fecha_ingreso: '' });
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const [selectedReport, setSelectedReport] = useState(null);
   const [newNote, setNewNote] = useState('');
-  const [newStatus, setNewStatus] = useState('Abierto');
-  const [accionCategory, setAccionCategory] = useState(ACTION_CATEGORIES[0]);
-  const [sistemaAfectado, setSistemaAfectado] = useState(AFFECTED_SYSTEMS[0]);
-  const [temporalidad, setTemporalidad] = useState('');
-  const [asignadoA, setAsignadoA] = useState('');
+  const [newStatus, setNewStatus] = useState('');
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
 
-  const sstUsers = useMemo(() => {
-    return allBukUsers.filter(u => u.departamento === 'Seguridad y Salud en el Trabajo' && u.direction === 'Dirección Desarrollo Humano');
-  }, [allBukUsers]);
+  const [showNewReportModal, setShowNewReportModal] = useState(false);
 
-  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
-
-  useEffect(() => {
-    if (selectedEmpId && currentUser?.equipo) {
-      const emp = currentUser.equipo.find(e => String(e.document_number) === String(selectedEmpId));
-      if (emp) {
-        setEmpData({
-          cargo: emp.cargo || '', area_nombre: emp.area_nombre || '', departamento: emp.departamento || '',
-          direction: emp.direction || '', celular: emp.Celular || '', correo: emp.correo || '', fecha_ingreso: emp.fecha_ingreso || ''
-        });
-      }
-    }
-  }, [selectedEmpId, currentUser]);
-
+  // --- LOGIC ---
   const mapStrapiToApp = (strapiData, bukUsers) => {
     return strapiData.map(item => {
       const att = item.attributes;
       const bukUser = bukUsers.find(u => String(u.document_number) === String(att.empleado_documento)) || {};
 
       return {
-        id: `CASO-${item.id}`, strapiId: item.id, employeeId: att.empleado_documento, employeeName: att.empleado_nombre,
+        id: item.id,
+        strapiId: item.id,
+        employeeId: att.empleado_documento,
+        employeeName: att.empleado_nombre,
         employeeDetails: {
-          foto: bukUser.foto || null, documento: att.empleado_documento, celular: att.celular_editado || bukUser.Celular || 'No registrado',
-          correo: att.correo_editado || bukUser.correo || 'No registrado', cargo: att.cargo_editado || bukUser.cargo || 'No registrado',
-          area: att.area_editada || bukUser.area_nombre || att.pdv, departamento: att.departamento_editado || bukUser.departamento || '',
-          direction: att.direccion_editada || bukUser.direction || '', peso: att.peso, talla: att.talla,
-          genero: att.genero || 'No especificado', edad: att.edad || calculateAge(att.fecha_nacimiento) || 'N/A', antiguedad: calculateSeniority(bukUser.fecha_ingreso),
+          foto: bukUser.foto || null,
+          documento: att.empleado_documento,
+          celular: bukUser.Celular || 'No registrado',
+          correo: bukUser.correo || 'No registrado',
+          cargo: bukUser.cargo || 'No registrado',
+          area: bukUser.area_nombre || att.pdv,
+          peso: att.peso,
+          talla: att.talla
         },
-        leaderDocument: att.lider_documento, pdv: att.pdv, date: new Date(att.createdAt).toLocaleDateString(),
-        type: att.tipo_caso, description: att.descripcion, status: att.estado, entidadCargo: att.entidad_cargo || 'N/A',
-        nombreEntidad: att.nombre_entidad || 'N/A', pdfUrl: att.pdf_url || null,
-        vencimiento: att.fecha_vencimiento_accion ? new Date(att.fecha_vencimiento_accion) : null,
-        asignadoA: att.asignado_a || null, gestor: att.gestor_cierre || null,
+        leaderDocument: att.lider_documento,
+        pdv: att.pdv,
+        date: new Date(att.createdAt).toLocaleDateString(),
+        type: att.tipo_caso,
+        description: att.descripcion,
+        status: att.estado,
         history: att.sst_seguimientos?.data?.map(seg => ({
-          id: seg.id, date: new Date(seg.attributes.createdAt).toLocaleDateString(), note: seg.attributes.nota,
-          author: seg.attributes.autor, accion: seg.attributes.categoria_accion || 'General', sistema: seg.attributes.sistema_afectado || 'N/A'
+          id: seg.id,
+          date: new Date(seg.attributes.createdAt).toLocaleDateString(),
+          note: seg.attributes.nota,
+          author: seg.attributes.autor
         })) || []
       };
     });
@@ -334,7 +109,10 @@ export default function App() {
       }`;
       const response = await fetch(url);
       const json = await response.json();
-      if (json.data) setReports(mapStrapiToApp(json.data, allBukUsers));
+      
+      if (json.data) {
+        setReports(mapStrapiToApp(json.data, allBukUsers));
+      }
     } catch (error) {
       console.error("Error cargando reportes:", error);
       alert("Hubo un error cargando los datos del servidor.");
@@ -343,10 +121,15 @@ export default function App() {
     }
   };
 
-  useEffect(() => { if (currentUser) fetchReports(); }, [currentUser]);
+  useEffect(() => {
+    if (currentUser) fetchReports();
+  }, [currentUser]);
 
   const handleLogout = () => {
-    setCurrentUser(null); setReports([]); setAllBukUsers([]); setActiveTab('dashboard');
+    setCurrentUser(null);
+    setReports([]);
+    setAllBukUsers([]);
+    setActiveTab('dashboard');
   };
 
   const handleSubmitReport = async (e) => {
@@ -356,30 +139,35 @@ export default function App() {
 
     setIsSubmittingReport(true);
     try {
-      let fakePdfUrl = null;
-      if (pdfFile) fakePdfUrl = `https://mock.storage.com/pdf_${Date.now()}.pdf`;
-
       const payload = {
         data: {
-          empleado_documento: String(selectedEmployee.document_number), empleado_nombre: selectedEmployee.nombre,
-          lider_documento: currentUser.document, pdv: currentUser.pdv, tipo_caso: reportType,
-          descripcion: description, peso: peso ? parseFloat(peso) : null, talla: talla ? parseFloat(talla) : null,
-          estado: 'Abierto', genero: genero, fecha_nacimiento: fechaNacimiento, edad: calculateAge(fechaNacimiento),
-          entidad_cargo: entidadCargo, nombre_entidad: nombreEntidad, pdf_url: fakePdfUrl,
-          cargo_editado: empData.cargo, area_editada: empData.area_nombre, departamento_editado: empData.departamento,
-          direccion_editada: empData.direction, celular_editado: empData.celular, correo_editado: empData.correo
+          empleado_documento: String(selectedEmployee.document_number),
+          empleado_nombre: selectedEmployee.nombre,
+          lider_documento: currentUser.document,
+          pdv: currentUser.pdv,
+          tipo_caso: reportType,
+          descripcion: description,
+          peso: peso ? parseFloat(peso) : null,
+          talla: talla ? parseFloat(talla) : null,
+          estado: 'Abierto'
         }
       };
 
       const response = await fetch(`${STRAPI_BASE_URL}/sst-reportes`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
+
       if (!response.ok) throw new Error("Error en el servidor al guardar.");
 
-      setDescription(''); setPeso(''); setTalla(''); setSelectedEmpId('');
-      setGenero(''); setFechaNacimiento(''); setNombreEntidad(''); setPdfFile(null);
-      setActiveTab('dashboard');
+      setDescription('');
+      setPeso('');
+      setTalla('');
+      setSelectedEmpId('');
+      setShowNewReportModal(false);
       await fetchReports();
+      
     } catch (error) {
       alert("Error enviando el reporte: " + error.message);
     } finally {
@@ -388,40 +176,39 @@ export default function App() {
   };
 
   const handleOpenCase = (report) => {
-    setSelectedReport(report); setNewStatus(report.status || 'Abierto'); setNewNote('');
-    setAccionCategory(ACTION_CATEGORIES[0]); setSistemaAfectado(AFFECTED_SYSTEMS[0]);
-    setTemporalidad(''); setAsignadoA(report.asignadoA || '');
+    setSelectedReport(report);
+    setNewStatus(report.status || 'Abierto');
+    setNewNote('');
   };
 
   const handleSaveFollowUp = async (e) => {
     e.preventDefault();
     if (!newNote.trim()) return;
+
     setIsSubmittingNote(true);
     try {
       const segRes = await fetch(`${STRAPI_BASE_URL}/sst-seguimientos`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { nota: newNote, autor: currentUser.name, categoria_accion: accionCategory, sistema_afectado: sistemaAfectado } })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { nota: newNote, autor: currentUser.name } })
       });
       if (!segRes.ok) throw new Error('Error al guardar el seguimiento');
       const segData = await segRes.json();
-      
-      let fechaVencimiento = selectedReport.vencimiento;
-      if (temporalidad) {
-        const d = new Date(); d.setMonth(d.getMonth() + parseInt(temporalidad, 10));
-        fechaVencimiento = d.toISOString();
-      }
+      const newSegId = segData.data.id;
+
+      const existingSegIds = selectedReport.history.map(h => h.id);
 
       const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${selectedReport.strapiId}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: { estado: newStatus, sst_seguimientos: [...selectedReport.history.map(h => h.id), segData.data.id],
-            fecha_vencimiento_accion: fechaVencimiento, asignado_a: asignadoA || null,
-            gestor_cierre: newStatus === 'Cerrado' ? currentUser.name : selectedReport.gestor }
+          data: { estado: newStatus, sst_seguimientos: [...existingSegIds, newSegId] }
         })
       });
-      if (!repRes.ok) throw new Error('Error al actualizar el estado');
+      if (!repRes.ok) throw new Error('Error al actualizar el estado del caso');
 
-      await fetchReports(); setSelectedReport(null);
+      await fetchReports();
+      setSelectedReport(null);
     } catch (error) {
       alert("Error: " + error.message);
     } finally {
@@ -429,544 +216,723 @@ export default function App() {
     }
   };
 
-    const entityData = useMemo(() => {
-    const counts = reports.reduce((acc, curr) => { acc[curr.entidadCargo || 'N/A'] = (acc[curr.entidadCargo || 'N/A'] || 0) + 1; return acc; }, {});
-    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
-  }, [reports]);
-
-  const pieData = useMemo(() => {
-    const counts = reports.reduce((acc, curr) => { acc[curr.type] = (acc[curr.type] || 0) + 1; return acc; }, {});
-    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
-  }, [reports]);
-
   if (!currentUser) {
     return <Login onLogin={(user, fullBuk) => { setAllBukUsers(fullBuk); setCurrentUser(user); }} />;
   }
 
-  const filteredTickets = reports.filter(t => 
-    t.type?.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) || t.employeeDetails?.documento?.includes(searchTerm)
+  const filteredTickets = reports.filter(ticket => 
+    ticket.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ticket.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const currentItems = filteredTickets.slice(indexOfLastItem - itemsPerPage, indexOfLastItem);
-  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
-
   const stats = {
-    total: reports.length, open: reports.filter(t => t.status === 'Abierto').length,
-    inProgress: reports.filter(t => t.status === 'Accion Realizada').length,
-    closed: reports.filter(t => t.status === 'Cerrado').length,
-    myResolved: reports.filter(t => t.status === 'Cerrado' && t.gestor === currentUser.name).length
+    total: reports.length,
+    open: reports.filter(t => t.status === 'Abierto').length,
+    inProgress: reports.filter(t => t.status === 'En Seguimiento').length,
+    closed: reports.filter(t => t.status === 'Cerrado').length
   };
 
-  const expiredAlerts = reports.filter(t => t.status !== 'Cerrado' && t.vencimiento && new Date(t.vencimiento) < new Date());
-
-  const barData = [
-    { name: 'Abierto', casos: stats.open }, { name: 'Acc. Real.', casos: stats.inProgress }, { name: 'Cerrado', casos: stats.closed }
-  ];
-  const CHART_COLORS = ['#f43f5e', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#64748b', '#ec4899'];
-
-
   const renderDashboard = () => (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      
-      {currentUser.role === 'SST' && expiredAlerts.length > 0 && (
-        <div className="alert-banner">
-          <AlertOctagon className="text-red-600" size={24} style={{ flexShrink: 0 }} />
-          <div>
-            <h3 className="font-semibold text-red-800">Alertas de Vencimiento ({expiredAlerts.length})</h3>
-            <p className="text-sm text-red-700" style={{ marginTop: '0.25rem' }}>Existen casos cuyas acciones o recomendaciones médicas han vencido.</p>
-            <div className="alert-tags">
-              {expiredAlerts.slice(0, 5).map(a => (
-                <Badge key={a.id} variant="destructive" onClick={() => handleOpenCase(a)} style={{ cursor: 'pointer' }}>
-                  {a.id} - {a.employeeName}
-                </Badge>
-              ))}
-              {expiredAlerts.length > 5 && <Badge variant="outline">+{expiredAlerts.length - 5} más</Badge>}
+    <div className="view-container">
+      <div className="view-header">
+        <div>
+          <div className="topbar-actions">
+            <div className="user-header">
+              <div className="user-info">
+                {currentUser.foto ? (
+                  <img
+                    src={currentUser.foto}
+                    alt="Perfil"
+                    className="user-avatar"
+                  />
+                ) : (
+                  <div className="user-avatar-fallback">
+                    <User size={14} />
+                  </div>
+                )}
+
+                <h2>¡Hola, {currentUser.name}!</h2>
+              </div>
+
+              <div className="user-actions">
+                <button onClick={fetchReports} disabled={loadingData} className="btn btn-primary">
+                  <RefreshCw size={16} />
+                  <span>Actualizar</span>
+                </button>
+                <button onClick={handleLogout} className="btn btn-secondary">
+                  <LogOut size={18} />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
-
-      <div className="dashboard-grid">
-        <Card>
-          <CardHeader>
-            <div className="stats-header">
-              <CardTitle className="text-sm font-medium">{currentUser.role === 'LIDER' ? 'Mis Reportes' : 'Total Casos'}</CardTitle>
-              <Ticket size={16} className="text-zinc-500" />
-            </div>
-          </CardHeader>
-          <CardContent><div className="stats-value">{stats.total}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <div className="stats-header">
-              <CardTitle className="text-sm font-medium">Abiertos</CardTitle>
-              <AlertCircle size={16} className="text-red-500" />
-            </div>
-          </CardHeader>
-          <CardContent><div className="stats-value text-red-500">{stats.open}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <div className="stats-header">
-              <CardTitle className="text-sm font-medium">Acción Realizada</CardTitle>
-              <Clock size={16} className="text-amber-500" />
-            </div>
-          </CardHeader>
-          <CardContent><div className="stats-value text-amber-500">{stats.inProgress}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <div className="stats-header">
-              <CardTitle className="text-sm font-medium">Casos Cerrados</CardTitle>
-              <CheckCircle2 size={16} className="text-emerald-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="stats-value text-emerald-500">{stats.closed}</div>
-            {currentUser.role === 'SST' && <p className="text-xs text-zinc-500" style={{ marginTop: '0.25rem' }}>Resueltos por ti: <span className="font-medium text-zinc-900">{stats.myResolved}</span></p>}
-          </CardContent>
-        </Card>
       </div>
+      
+      {currentUser.role === 'SST' && (
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-info">
+              <p className="stat-title">Total Casos</p>
+              <p className="stat-value">{stats.total}</p>
+            </div>
+            <div className="stat-icon icon-blue">
+              <Ticket size={24} />
+            </div>
+          </div>
 
-      {currentUser.role === 'SST' && reports.length > 0 && (
-        <div className="charts-grid">
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Por Entidad a Cargo</CardTitle></CardHeader>
-            <CardContent>
-              <div style={{ height: '200px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={entityData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} dataKey="value" nameKey="name" paddingAngle={5}>
-                      {entityData.map((e, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }}/>
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Distribución de Casos</CardTitle></CardHeader>
-            <CardContent>
-              <div style={{ height: '200px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} dataKey="value" nameKey="name" paddingAngle={5}>
-                      {pieData.map((e, i) => <Cell key={i} fill={CHART_COLORS.slice().reverse()[i % CHART_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }}/>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Estado Actual</CardTitle></CardHeader>
-            <CardContent>
-              <div style={{ height: '200px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                    <Tooltip cursor={{ fill: '#f4f4f5' }} contentStyle={{ borderRadius: '8px', fontSize: '12px' }}/>
-                    <Bar dataKey="casos" fill="#18181b" radius={[4, 4, 0, 0]} barSize={30} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="stat-card">
+            <div className="stat-info">
+              <p className="stat-title">Sin Atender (Abiertos)</p>
+              <p className="stat-value text-red">{stats.open}</p>
+            </div>
+            <div className="stat-icon icon-red">
+              <AlertCircle size={24} />
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-info">
+              <p className="stat-title">En Seguimiento</p>
+              <p className="stat-value text-amber">{stats.inProgress}</p>
+            </div>
+            <div className="stat-icon icon-amber">
+              <Clock size={24} />
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-info">
+              <p className="stat-title">Casos Cerrados</p>
+              <p className="stat-value text-emerald">{stats.closed}</p>
+            </div>
+            <div className="stat-icon icon-emerald">
+              <CheckCircle2 size={24} />
+            </div>
+          </div>
         </div>
       )}
 
-      <Card>
-        <CardHeader className="table-header-row">
-          <div>
-            <CardTitle>{currentUser.role === 'LIDER' ? 'Reportes Realizados' : 'Bandeja de Casos SST'}</CardTitle>
-            <CardDescription>{currentUser.role === 'LIDER' ? 'Visualización de solo lectura.' : 'Gestiona los reportes de sedes y equipos.'}</CardDescription>
+      <div className="card table-card">
+        <div className="table-toolbar">
+          <div className="search-wrapper">
+            <Search className="search-icon" size={20} />
+            <input 
+              type="text" 
+              placeholder="Buscar por colaborador, ID o detalle..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="form-control"
+            />
           </div>
-          <div className="d-flex items-center gap-2">
-            <div className="table-search-bar">
-              <Search className="table-search-icon" size={16} />
-              <Input type="text" placeholder="Buscar reporte..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="table-search-input" />
+          {currentUser.role === 'LIDER' && (
+            <div>
+              <button
+                onClick={() => setShowNewReportModal(true)}
+                className="btn btn-primary"
+              >
+                <Plus size={18} /> Crear Nuevo Reporte
+              </button>
             </div>
-            {currentUser.role === 'LIDER' && (
-              <Button onClick={() => setActiveTab('new')} className="hidden sm-flex d-flex items-center"><Plus size={16} style={{ marginRight: '0.5rem' }} /> Nuevo</Button>
-            )}
-          </div>
-        </CardHeader>
-        
-        <div className="table-container">
+          )}
+        </div>
+
+        <div className="table-responsive">
           <table className="data-table">
             <thead>
               <tr>
-                <th>ID / Fecha</th><th>Colaborador</th><th>Detalle</th><th>Estado</th>
-                {currentUser.role === 'SST' && <th className="text-right">Acción</th>}
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Identificación</th>
+                <th>Colaborador</th>
+                <th>Tipo</th>
+                {currentUser.role === 'SST' && (
+                  <th>Detalle</th>
+                )}
+                <th>Estado</th>
+                {currentUser.role === 'SST' && (
+                  <th>Acción</th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {currentItems.map(ticket => (
+              {filteredTickets.map(ticket => (
                 <tr key={ticket.id}>
                   <td>
-                    <p className="font-semibold text-zinc-900">{ticket.id}</p>
-                    <p className="text-xs text-zinc-500 mt-4">{ticket.date}</p>
-                    {ticket.vencimiento && ticket.status !== 'Cerrado' && new Date(ticket.vencimiento) < new Date() && (
-                      <Badge variant="destructive" style={{ marginTop: '0.5rem' }}>Vencido</Badge>
-                    )}
+                    <p className="font-bold">{ticket.id}</p>
                   </td>
                   <td>
-                    <div className="d-flex items-center gap-4">
-                      {ticket.employeeDetails?.foto ? (
-                        <img src={ticket.employeeDetails.foto} alt="" className="avatar" style={{ height: '2.5rem', width: '2.5rem' }} />
-                      ) : (
-                        <div className="avatar" style={{ height: '2.5rem', width: '2.5rem' }}>{ticket.employeeName.charAt(0)}</div>
-                      )}
-                      <div>
-                        <p className="font-medium text-zinc-900">{ticket.employeeName}</p>
-                        <p className="text-xs text-zinc-500">CC: {ticket.employeeId}</p>
-                        {currentUser.role === 'SST' && <p className="text-xs text-blue-500 font-medium" style={{ marginTop: '0.125rem' }}>Líder: {ticket.leaderDocument}</p>}
-                      </div>
-                    </div>
+                    <p className="text-bold">{ticket.date}</p>
                   </td>
-                  <td style={{ maxWidth: '200px' }}>
-                    <p className="font-medium text-zinc-900">{ticket.type}</p>
-                    <p className="text-xs text-zinc-500 truncate" style={{ marginTop: '0.25rem' }} title={ticket.description}>{ticket.description}</p>
+                  <td>
+                    <p className="text-bold">{ticket.employeeId}</p>
                   </td>
-                  <td><StatusBadge status={ticket.status} /></td>
+                  <td>
+                    <p className="font-bold">{ticket.employeeName}</p>
+                  </td>
+                  <td>
+                    <p className="font-bold">{ticket.type}</p>
+                  </td>
                   {currentUser.role === 'SST' && (
-                    <td className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => handleOpenCase(ticket)}>
-                        <span className="d-flex items-center">Gestionar <ChevronRight size={14} style={{ marginLeft: '0.25rem' }} /></span>
-                      </Button>
+                    <td>
+                      <p className="text-bold truncate">{ticket.description}</p>
                     </td>
                   )}
+                  <td>
+                    <StatusBadge status={ticket.status} />
+                  </td>
+                  {currentUser.role === 'SST' && (
+                    <td>
+                      <button onClick={() => handleOpenCase(ticket)} className="btn btn-outline-primary btn-sm">
+                        {currentUser.role === 'SST' ? 'Gestionar' : 'Ver Detalles'} <ChevronRight size={16} />
+                      </button>
+                    </td>
+                  )}
+                  
                 </tr>
               ))}
-              {currentItems.length === 0 && !loadingData && (
-                <tr><td colSpan="5" className="text-center text-zinc-500" style={{ height: '6rem' }}>No se encontraron reportes.</td></tr>
+              {filteredTickets.length === 0 && !loadingData && (
+                <tr>
+                  <td colSpan="5" className="text-center p-large text-muted">
+                    No hay casos registrados o que coincidan con la búsqueda.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
-        
-        {totalPages > 1 && (
-          <div className="table-pagination">
-            <span className="text-sm text-zinc-500">Página {currentPage} de {totalPages}</span>
-            <div className="d-flex gap-2">
-              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Anterior</Button>
-              <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Siguiente</Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      </div>
     </div>
   );
 
-
   const renderNewTicket = () => {
     const selectedEmployee = currentUser.equipo?.find(e => String(e.document_number) === selectedEmpId);
-    const handleDataChange = (e, field) => setEmpData(prev => ({ ...prev, [field]: e.target.value }));
 
     return (
-      <div className="animate-slide-up" style={{ maxWidth: '56rem', margin: '0 auto', paddingBottom: '3rem' }}>
-        <Card style={{ overflow: 'hidden' }}>
-          <CardHeader style={{ backgroundColor: 'var(--zinc-900)', color: 'white', borderBottom: 'none' }}>
-            <CardTitle className="text-xl">Reportar Nueva Novedad SST</CardTitle>
-            <CardDescription className="text-zinc-400">Diligencie este formulario con información detallada para una correcta gestión.</CardDescription>
-          </CardHeader>
+      
+        <form onSubmit={handleSubmitReport} className="form-card">
+          <div className="form-section">
+            <div className="form-group">
+              <label>Seleccionar miembro del equipo</label>
+              <select className="form-control" value={selectedEmpId} onChange={(e) => setSelectedEmpId(e.target.value)} required>
+                <option value="" disabled>-- Seleccione colaborador --</option>
+                {currentUser.equipo?.map(emp => (
+                  <option key={emp.document_number} value={emp.document_number}>{emp.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedEmployee && (
+              <div className="employee-preview">
+
+                {/* Header */}
+                <div className="employee-header">
+                  {selectedEmployee.foto ? (
+                    <img
+                      src={selectedEmployee.foto}
+                      alt="Foto"
+                      className="avatar"
+                    />
+                  ) : (
+                    <div className="avatar placeholder">
+                      {selectedEmployee.nombre.charAt(0)}
+                    </div>
+                  )}
+
+                  <div className="employee-info">
+                    <h3>{selectedEmployee.nombre}</h3>
+                    <p>{selectedEmployee.document_number}</p>
+                    <p>{selectedEmployee.fecha_ingreso}</p>
+                  </div>
+                </div>
+
+                {/* Formulario */}
+                <form className="employee-form">
+
+                  {/* Columna izquierda - solo lectura */}
+                  <div className="form-column">
+                    <div className="form-group">
+                      <label>Cargo</label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.cargo || ""}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Área</label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.area_nombre || ""}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Departamento</label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.departamento || ""}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Dirección</label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.direction || ""}
+                        disabled
+                      />
+                    </div>
+                  </div>
+
+                  {/* Columna derecha - editable */}
+                  <div className="form-column">
+                    <div className="form-group">
+                      <label>Celular</label>
+                      <input
+                        type="text"
+                        defaultValue={selectedEmployee.celular || ""}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Correo</label>
+                      <input
+                        type="email"
+                        defaultValue={selectedEmployee.correo || ""}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Género</label>
+                      <select>
+                        <option value="">Seleccione</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Femenino</option>
+                        <option value="O">Otro</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Edad</label>
+                      <input type="number" />
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+
+          <div className="form-section">
+            <h3 className="section-title"><FileText size={18} /> Detalles de la Novedad</h3>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Categoría</label>
+                <select value={reportType} onChange={(e) => setReportType(e.target.value)} className="form-control">
+                  <option value="Incidente">Incidente</option>
+                  <option value="Accidente Leve">Accidente Leve</option>
+                  <option value="Accidente Grave">Accidente Grave</option>
+                  <option value="Condición Insegura">Condición Insegura</option>
+                  <option value="Enfermedad Laboral">Enfermedad Laboral</option>
+                  <option value="Reincorporación post incapacidadl">Reincorporación post incapacidadl</option>
+                  <option value="Recomendaciones medicas">Recomendaciones medicas</option>
+                  <option value="Recomendaciones nutricionales">Recomendaciones nutricionales</option>
+                  <option value="Incapacidades recurrentes">Incapacidades recurrentes</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Entidad a cargo</label>
+                <select>
+                  <option value="EPS">EPS</option>
+                  <option value="ARL">ARL</option>
+                  <option value="Medicina prepagada">Medicina prepagada</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Nombre de Entidad</label>
+                <input/>
+              </div>
+              <div className="form-group">
+                <label>Peso (kg)</label>
+                <input type="number" step="0.1" required placeholder="Ej: 70.5" className="form-control" value={peso} onChange={(e) => setPeso(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Talla (m)</label>
+                <input type="number" step="0.01" required placeholder="Ej: 1.75" className="form-control" value={talla} onChange={(e) => setTalla(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Descripción de lo sucedido</label>
+              <textarea required rows="4" value={description} onChange={(e) => setDescription(e.target.value)} className="form-control" placeholder="Explique qué pasó, dónde, cómo y cuándo..."></textarea>
+            </div>
+
+            <div className="form-group">
+              <label>Adjuntos</label>
+              <input/>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button
+              type="button"
+              onClick={() => setShowNewReportModal(false)}
+              className="btn btn-secondary"
+            >
+              Cancelar
+            </button>
+            <button disabled={isSubmittingReport || !selectedEmpId} type="submit" className="btn btn-primary">
+              {isSubmittingReport ? 'Guardando...' : 'Enviar Reporte'}
+            </button>
+          </div>
+        </form>
+      
+    );
+  }
+
+  return (
+    <>
+      
+      <div className="app-layout">
+        {/* Contenido Principal */}
+        <main className="main-content">
           
-          <form onSubmit={handleSubmitReport}>
-            <CardContent style={{ paddingTop: '2rem', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-              
-              {/* Sección: Colaborador */}
-              <div>
-                <div className="form-section-header">
-                  <User size={20} className="text-zinc-500" />
-                  <h3 className="font-bold text-base">1. Identificación del Colaborador</h3>
+          <div className="content-area">
+            {renderDashboard()}
+          </div>
+
+          {/* MODAL GESTIÓN DE CASO */}
+          {selectedReport && (
+            <div className="modal-overlay">
+              <div className="modal-window">
+                
+                <div className="modal-header">
+                  <div>
+                     <h2>Gestión del Caso: {selectedReport.id}</h2>
+                     <p>Reportado el {selectedReport.date}</p>
+                  </div>
+                  <button onClick={() => setSelectedReport(null)} className="btn btn-dark">
+                    Cerrar Panel
+                  </button>
                 </div>
                 
-                <div style={{ maxWidth: '28rem', marginBottom: '1.5rem' }}>
-                  <Label>Seleccionar miembro del equipo</Label>
-                  <Select value={selectedEmpId} onChange={(e) => setSelectedEmpId(e.target.value)} required>
-                    <option value="" disabled>-- Busque o seleccione --</option>
-                    {currentUser.equipo?.map(emp => <option key={emp.document_number} value={emp.document_number}>{emp.nombre} - CC: {emp.document_number}</option>)}
-                  </Select>
-                </div>
-
-                {selectedEmployee && (
-                  <div className="employee-summary-card">
-                    <div className="d-flex" style={{ flexDirection: 'column', gap: '1rem' }}>
-                      <div className="d-flex items-center gap-4">
-                        {selectedEmployee.foto ? (
-                          <img src={selectedEmployee.foto} alt="" className="avatar" style={{ height: '4rem', width: '4rem' }} />
+                <div className="modal-body">
+                  {/* COLUMNA IZQUIERDA: Perfil */}
+                  <div className="modal-col profile-col">
+                    <div className="card profile-card">
+                      <div className="profile-header">
+                        {selectedReport.employeeDetails?.foto ? (
+                          <img src={selectedReport.employeeDetails.foto} alt="Perfil" className="profile-img" />
                         ) : (
-                          <div className="avatar text-xl font-bold" style={{ height: '4rem', width: '4rem' }}>{selectedEmployee.nombre.charAt(0)}</div>
+                          <div className="profile-img placeholder">
+                            {selectedReport.employeeName.charAt(0)}
+                          </div>
                         )}
-                        <div>
-                          <p className="font-bold text-lg leading-tight">{selectedEmployee.nombre}</p>
-                          <p className="text-sm text-zinc-500 mt-4 font-mono">C.C. {selectedEmployee.document_number}</p>
+                        <h3>{selectedReport.employeeName}</h3>
+                        <p>{selectedReport.employeeDetails?.documento}</p>
+                        <p>fecha ingreso (calcular antigúedad)</p>
+                      </div>
+                      
+                      <div className="profile-body">
+                        <div className="contact-info">
+                          <p><Briefcase size={16} /> {selectedReport.employeeDetails?.cargo}</p>
+                          <p><MapPin size={16} /> {selectedReport.employeeDetails?.area}</p>
+                          <p><Briefcase size={16} /> {selectedReport.employeeDetails?.direction}</p>
+                          <p><MapPin size={16} /> {selectedReport.employeeDetails?.departamento}</p>
+
+                          <p><Phone size={16} /> {selectedReport.employeeDetails?.celular}</p>
+                          <p><Mail size={16} /> {selectedReport.employeeDetails?.correo}</p>
+
+                          <p>edad</p>
+                          <p>genero</p>
+                        </div>
+
+                        <div className="biometric-section">
+                          
+                          <div className="biometric-grid">
+                            <div className="bio-card">
+                              <span>Peso</span>
+                              <strong>{selectedReport.employeeDetails?.peso || '--'} <small>kg</small></strong>
+                            </div>
+                            <div className="bio-card">
+                              <span>Talla</span>
+                              <strong>{selectedReport.employeeDetails?.talla || '--'} <small>m</small></strong>
+                            </div>
+                          </div>
+                          
+                          {(() => {
+                            const bmi = calculateBMI(selectedReport.employeeDetails?.peso, selectedReport.employeeDetails?.talla);
+                            return (
+                              <div className={`bmi-card ${bmi.cssClass}`}>
+                                <div>
+                                  <span>IMC Calculado</span>
+                                  <strong>{bmi.label}</strong>
+                                </div>
+                                <span className="bmi-value">{bmi.value}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
-                      <div className="form-grid form-grid-2" style={{ gap: '1rem' }}>
-                        <div><Label className="text-xs text-zinc-500">Cargo</Label><Input value={empData.cargo} onChange={(e)=>handleDataChange(e,'cargo')} className="text-xs" style={{ height: '2rem' }} /></div>
-                        <div><Label className="text-xs text-zinc-500">Área</Label><Input value={empData.area_nombre} onChange={(e)=>handleDataChange(e,'area_nombre')} className="text-xs" style={{ height: '2rem' }} /></div>
-                        <div><Label className="text-xs text-zinc-500">Dpto.</Label><Input value={empData.departamento} onChange={(e)=>handleDataChange(e,'departamento')} className="text-xs" style={{ height: '2rem' }} /></div>
-                        <div><Label className="text-xs text-zinc-500">Celular</Label><Input value={empData.celular} onChange={(e)=>handleDataChange(e,'celular')} className="text-xs" style={{ height: '2rem' }} /></div>
+                    </div>
+                  </div>
+
+                  {/* COLUMNA CENTRAL */}
+                  <div className="modal-col details-col">
+                    <div className="detail-section">
+                      <h3 className="section-title"><FileText size={16}/> Detalles del Evento</h3>
+                      <div className="card p-4">
+                        <div className="detail-row"><span>Categoría</span> <strong>{selectedReport.type}</strong></div>
+                        
+                        
+                        <div className="description-box">
+                          <span>Descripción Reportada</span>
+                          <p>"{selectedReport.description}"</p>
+
+                          <span>entidad a cargo</span>
+                          <div className="detail-row align-center"><span>estado actual </span> <StatusBadge status={selectedReport.status} /></div>
+                        </div>
                       </div>
                     </div>
 
-                    <div style={{ borderLeft: '1px solid var(--zinc-200)', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                       <h4 className="font-semibold text-sm d-flex items-center gap-2"><HeartPulse size={16} className="text-zinc-400"/> Datos Demográficos</h4>
-                       <div className="d-flex" style={{ flexDirection: 'column', gap: '0.75rem' }}>
-                         <div>
-                            <Label className="text-xs">Género</Label>
-                            <Select value={genero} onChange={(e) => setGenero(e.target.value)} required className="text-xs" style={{ height: '2rem' }}>
-                              <option value="" disabled>Seleccione...</option><option value="Mujer">Mujer</option><option value="Hombre">Hombre</option>
-                            </Select>
-                         </div>
-                         <div>
-                            <Label className="text-xs">Fecha de Nacimiento</Label>
-                            <Input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} required className="text-xs" style={{ height: '2rem' }} />
-                            {fechaNacimiento && <span className="text-xs text-zinc-500 mt-4 d-block">Edad calculada: {calculateAge(fechaNacimiento)} años</span>}
-                         </div>
-                       </div>
+                    {currentUser.role === 'SST' && (
+                      <div className="detail-section mt-4">
+                        <h3 className="section-title"><Activity size={16}/> Añadir Gestión</h3>
+                        <form onSubmit={handleSaveFollowUp} className="card p-4">
+                          
+                          <div className="form-group">
+                            <label>categoria accion</label>
+                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                              <option value="Compromiso autocuidado">Compromiso autocuidado</option>
+                              <option value="Reincoporacion laboral">Reincoporacion laboral</option>
+                              <option value="Acta de seguimiento">Acta de seguimiento</option>
+                              <option value="Autorización de lonchera">Autorización de lonchera</option>
+                              <option value="Cierre de reincorporación">Cierre de reincorporación</option>
+                              <option value="Otra">Otra</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>sistema afectado</label>
+                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                              <option value="No Aplica">No Aplica</option>
+                              <option value="Genitourinario">Genitourinario</option>
+                              <option value="Dermatológico">Dermatológico</option>
+                              <option value="Cardiovascular">Cardiovascular</option>
+                              <option value="Gastrointestinal">Gastrointestinal</option>
+                              <option value="Respiratorio">Respiratorio</option>
+                              <option value="Inmunologico">Inmunologico</option>
+                              <option value="Alimenticio">Alimenticio</option>
+                              <option value="Neurologico">Neurologico</option>
+                              <option value="Neoplasias">Neoplasias</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>temporalidad</label>
+                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                              <option value="No Aplica">No Aplica</option>
+                              <option value="1mes">1mes</option>
+                              <option value="3mes">3mes</option>
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label>estado caso</label>
+                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                              <option value="Abierto">Abierto</option>
+                              <option value="En Seguimiento">En Seguimiento</option>
+                              <option value="Cerrado">Cerrado</option>
+                              <option value="Retirado">Retirado</option>
+                            </select>
+                          </div>
+
+                          <div className="form-group">
+                            <label>detalles gestion</label>
+                            <textarea rows="3" required className="form-control" placeholder="Acciones tomadas..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
+                          </div>
+                          <button type="submit" disabled={isSubmittingNote} className="btn btn-primary w-full">
+                            {isSubmittingNote ? 'Guardando...' : 'Guardar Gestión'}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* COLUMNA DERECHA: Timeline */}
+                  <div className="modal-col timeline-col">
+                    <h3 className="section-title"><Clock size={16}/> Línea de Tiempo</h3>
+                    
+                    <div className="timeline">
+                      <div className="timeline-item">
+                        <div className="timeline-dot dot-primary"></div>
+                        <div className="timeline-content">
+                          <div className="tl-header">
+                            <strong>Apertura del Caso</strong>
+                            <span className="tl-date">{selectedReport.date}</span>
+                          </div>
+                          <p className="tl-sub">Líder: <strong>{selectedReport.leaderDocument}</strong></p>
+                        </div>
+                      </div>
+
+                      {selectedReport.history.map((h, i) => (
+                        <div className="timeline-item" key={i}>
+                          <div className="timeline-dot dot-secondary"></div>
+                          <div className="timeline-content">
+                            <div className="tl-header">
+                              <strong>Gestión SST</strong>
+                              <span className="tl-date">{h.date}</span>
+                            </div>
+                            <p className="tl-text">{h.note}</p>
+                            <span className="tl-author">— {h.author}</span>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {selectedReport.history.length === 0 && (
+                        <div className="timeline-item">
+                           <div className="timeline-dot dot-muted"></div>
+                           <p className="tl-empty">Esperando gestión...</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* Sección: Detalles del caso */}
-              <div>
-                <div className="form-section-header">
-                  <FileText size={20} className="text-zinc-500" />
-                  <h3 className="font-bold text-base">2. Detalles de la Novedad</h3>
                 </div>
-                <div className="form-grid form-grid-3">
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <Label>Categoría del Reporte</Label>
-                    <Select value={reportType} onChange={(e) => setReportType(e.target.value)}>
-                      {REPORT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </Select>
+              </div>
+            </div>
+          )}
+
+          {showNewReportModal && (
+            <div className="modal-overlay">
+              <div
+                className="modal-window"
+                style={{
+                  maxWidth: '900px',
+                  width: '95%',
+                  maxHeight: '90vh',
+                  overflowY: 'auto'
+                }}
+              >
+                <div className="modal-header">
+                  <div>
+                    <h2>Nuevo Reporte SST</h2>
+                    <p>Registrar novedad de un colaborador</p>
                   </div>
-                  
-                  <div className="form-grid form-grid-4" style={{ gridColumn: '1 / -1', backgroundColor: 'var(--zinc-50)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--zinc-200)' }}>
-                      <div>
-                        <Label className="text-xs">Entidad a Cargo</Label>
-                        <Select value={entidadCargo} onChange={(e) => setEntidadCargo(e.target.value)}>
-                          <option value="EPS">EPS</option><option value="ARL">ARL</option><option value="Medicina Prepagada">Medicina Prepagada</option>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Nombre de Entidad</Label>
-                        <Input value={nombreEntidad} onChange={(e) => setNombreEntidad(e.target.value)} required placeholder="Ej: Sanitas" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Peso (kg)</Label>
-                        <Input type="number" step="0.1" required placeholder="Ej: 70.5" value={peso} onChange={(e) => setPeso(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Talla (m)</Label>
-                        <Input type="number" step="0.01" required placeholder="Ej: 1.75" value={talla} onChange={(e) => setTalla(e.target.value)} />
-                      </div>
-                  </div>
+
+                  <button
+                    onClick={() => setShowNewReportModal(false)}
+                    className="btn btn-dark"
+                  >
+                    Cerrar
+                  </button>
                 </div>
 
-                <div style={{ marginTop: '1.5rem' }}>
-                  <Label>Descripción de lo sucedido / Observaciones</Label>
-                  <Textarea required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Explique detalladamente..." />
+                <div className="modal-body">
+                  {renderNewTicket()}
                 </div>
               </div>
-
-              {/* Sección: Adjuntos */}
-              <div>
-                <div className="form-section-header">
-                  <Upload size={20} className="text-zinc-500" />
-                  <h3 className="font-bold text-base">3. Soportes (Opcional)</h3>
-                </div>
-                <div className="file-dropzone">
-                   <Input type="file" accept="application/pdf" id="file-upload" className="hidden" onChange={(e) => setPdfFile(e.target.files[0])} />
-                   <Label htmlFor="file-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                     <div className="avatar" style={{ height: '3rem', width: '3rem', marginBottom: '0.5rem' }}><FileText className="text-zinc-400" /></div>
-                     <span className="font-medium">Haga clic para subir soporte en PDF</span>
-                     <span className="text-xs text-zinc-500 mt-4">Solo archivos .pdf (Max. 5MB)</span>
-                   </Label>
-                   {pdfFile && <Badge variant="success" style={{ marginTop: '1rem' }}>Archivo cargado: {pdfFile.name}</Badge>}
-                </div>
-              </div>
-
-            </CardContent>
-            
-            <CardFooter style={{ backgroundColor: 'var(--zinc-50)', borderTop: '1px solid var(--zinc-200)', justifyContent: 'space-between', paddingTop: '1.5rem' }}>
-              <Button type="button" variant="outline" onClick={() => setActiveTab('dashboard')}>Cancelar</Button>
-              <Button disabled={isSubmittingReport || !selectedEmpId} type="submit" size="lg">
-                {isSubmittingReport ? 'Guardando...' : 'Enviar Reporte al SST'}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+            </div>
+          )}
+        </main>
       </div>
-    );
+    </>
+  );
+}
+
+// --- LOGIN COMPONENT ---
+function Login({ onLogin }) {
+  const [document, setDocument] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!document) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${document}`);
+      if (!response.ok) throw new Error('Error al conectar con el servidor');
+
+      const jsonResponse = await response.json();
+      const usersData = jsonResponse.data || [];
+      const user = Array.isArray(usersData) ? usersData[0] : usersData;
+      if (!user) {
+        throw new Error('Documento no encontrado.');
+      }
+      if (user.status !== 'activo') {
+        throw new Error('El usuario se encuentra inactivo.');
+      }
+
+      let role = '';
+      let equipoActivo = [];
+      if (user.departamento === 'Seguridad y Salud en el Trabajo' && user.direction === 'Dirección Desarrollo Humano') {
+        role = 'SST';
+      } else if (user.lider === 1) {
+        role = 'LIDER';
+        if (Array.isArray(user.equipo)) {
+          equipoActivo = user.equipo.filter(emp => emp.status === 'activo');
+        }
+      } else {
+        throw new Error('No tiene los permisos requeridos.');
+      }
+
+      const userData = {
+        document: String(user.document_number),
+        name: user.nombre,
+        role: role,
+        pdv: user.area_nombre !== 'No Aplica' ? user.area_nombre : user.departamento,
+        area: user.area_nombre !== 'No Aplica' ? user.area_nombre : user.departamento,
+        equipo: equipoActivo,
+        cargo: user.cargo,
+        foto: user.foto
+      };
+
+      onLogin(userData, usersData);
+    } catch (err) {
+      setError(err.message || 'Error al iniciar sesión.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="d-flex" style={{ minHeight: '100vh', flexDirection: 'column' }}>
-      {/* Header */}
-      <header className="app-header">
-        <div className="header-actions">
-          <div className="header-profile">
-            {currentUser.foto ? (
-              <img src={currentUser.foto} alt="Perfil" className="avatar" />
-            ) : (
-              <div className="avatar"><User size={14} className="text-zinc-500" /></div>
-            )}
-            <div className="hidden sm-flex" style={{ flexDirection: 'column' }}>
-              <span className="text-sm font-medium">{currentUser.name}</span>
-              <span className="text-xs text-zinc-500">{currentUser.cargo}</span>
+    <>
+      
+      <div className="login-wrapper">
+        <div className="login-card card">
+          <div className="login-header">
+            <div className="login-icon">
+              <ShieldAlert size={40} />
             </div>
+            <h1>SST</h1>
+            <p>Ingreso</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={fetchReports} disabled={loadingData} className="hidden md-flex text-zinc-500">
-            <RefreshCw size={16} className={loadingData ? 'animate-spin' : ''} style={{ marginRight: '0.5rem' }} /> Actualizar
-          </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout} style={{ color: 'var(--zinc-500)' }}>
-            <LogOut size={18} />
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="main-content">
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'new' && renderNewTicket()}
-      </main>
-
-      {/* Slide-over Case Management (ONLY FOR SST) */}
-      {selectedReport && currentUser.role === 'SST' && (
-        <div className="modal-overlay">
-          <div className="modal-content animate-slide-left">
-            
-            <div className="modal-header">
-              <div>
-                <h2 className="text-xl font-bold text-zinc-900">{selectedReport.id}</h2>
-                <div className="d-flex items-center gap-2 mt-4">
-                  <p className="text-sm text-zinc-500 d-flex items-center"><Calendar size={12} style={{ marginRight: '0.25rem' }}/> {selectedReport.date}</p>
-                  <StatusBadge status={selectedReport.status} />
-                </div>
+          
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="form-group">
+              <label>Número de Documento</label>
+              <div className="input-with-icon">
+                <UserCircle className="icon-left" size={20} />
+                <input 
+                  type="number" 
+                  value={document}
+                  onChange={(e) => setDocument(e.target.value)}
+                  disabled={loading}
+                  className="form-control"
+                  placeholder="Ingrese su documento..."
+                />
               </div>
-              <Button variant="outline" onClick={() => setSelectedReport(null)}>Cerrar Panel</Button>
             </div>
-
-            <div className="modal-body">
-              {/* Employee Card */}
-              <div className="employee-summary-card" style={{ gridTemplateColumns: '1fr' }}>
-                <div className="d-flex gap-4">
-                  {selectedReport.employeeDetails?.foto ? (
-                    <img src={selectedReport.employeeDetails.foto} alt="" className="avatar" style={{ height: '5rem', width: '5rem', borderRadius: 'var(--radius-md)' }} />
-                  ) : (
-                    <div className="avatar font-bold text-2xl" style={{ height: '5rem', width: '5rem', borderRadius: 'var(--radius-md)' }}>{selectedReport.employeeName.charAt(0)}</div>
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <h3 className="font-bold text-lg leading-tight mb-4">{selectedReport.employeeName}</h3>
-                    <p className="text-xs text-zinc-500 mb-4 font-mono">{selectedReport.employeeDetails?.documento}</p>
-                    <div className="form-grid form-grid-2 text-xs text-zinc-600" style={{ gap: '0.5rem' }}>
-                      <div className="d-flex items-center"><Briefcase size={12} style={{ marginRight: '0.25rem' }} /> {selectedReport.employeeDetails?.cargo}</div>
-                      <div className="d-flex items-center"><MapPin size={12} style={{ marginRight: '0.25rem' }} /> {selectedReport.employeeDetails?.area}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="form-grid form-grid-4 text-center text-sm" style={{ borderTop: '1px solid var(--zinc-200)', paddingTop: '1rem', marginTop: '1rem' }}>
-                  <div><span className="text-xs text-zinc-500 d-block">Edad</span><span className="font-medium">{selectedReport.employeeDetails?.edad} a</span></div>
-                  <div><span className="text-xs text-zinc-500 d-block">Género</span><span className="font-medium">{selectedReport.employeeDetails?.genero}</span></div>
-                  <div><span className="text-xs text-zinc-500 d-block">Antigüedad</span><span className="font-medium">{selectedReport.employeeDetails?.antiguedad}</span></div>
-                  <div><span className="text-xs text-zinc-500 d-block">IMC</span><span className="font-medium">{calculateBMI(selectedReport.employeeDetails?.peso, selectedReport.employeeDetails?.talla).value}</span></div>
-                </div>
-              </div>
-
-              {/* Event Details */}
-              <div>
-                <h3 className="text-sm font-bold d-flex items-center mb-4" style={{ borderBottom: '1px solid var(--zinc-200)', paddingBottom: '0.5rem' }}><FileText size={16} style={{ marginRight: '0.5rem' }}/> Información de la Novedad</h3>
-                <div className="form-grid form-grid-2 text-sm mb-4">
-                  <div><span className="text-xs text-zinc-500 d-block">Categoría</span><span className="font-medium">{selectedReport.type}</span></div>
-                  <div><span className="text-xs text-zinc-500 d-block">Entidad a Cargo</span><span className="font-medium">{selectedReport.entidadCargo} - {selectedReport.nombreEntidad}</span></div>
-                </div>
-                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--zinc-200)' }}>
-                  <span className="text-xs font-semibold text-zinc-500 d-block mb-4">Descripción reportada:</span>
-                  <p className="text-sm">"{selectedReport.description}"</p>
-                </div>
-              </div>
-
-              {/* Action Form */}
-              <div className="action-box">
-                <h3 className="text-sm font-bold" style={{ color: 'var(--blue-900)', marginBottom: '1rem', display: 'flex', alignItems: 'center' }}><Activity size={16} style={{ marginRight: '0.5rem' }}/> Registrar Gestión SST</h3>
-                <form onSubmit={handleSaveFollowUp} className="d-flex" style={{ flexDirection: 'column', gap: '1rem' }}>
-                  <div className="form-grid form-grid-2">
-                    <div>
-                      <Label className="text-xs" style={{ color: 'var(--blue-900)' }}>Categoría Acción</Label>
-                      <Select value={accionCategory} onChange={(e) => setAccionCategory(e.target.value)}>{ACTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs" style={{ color: 'var(--blue-900)' }}>Sistema Afectado</Label>
-                      <Select value={sistemaAfectado} onChange={(e) => setSistemaAfectado(e.target.value)}>{AFFECTED_SYSTEMS.map(s => <option key={s} value={s}>{s}</option>)}</Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs" style={{ color: 'var(--blue-900)' }}>Temporalidad</Label>
-                      <Select value={temporalidad} onChange={(e) => setTemporalidad(e.target.value)}>
-                        <option value="">No aplica / Sin cierre automático</option><option value="1">1 Mes</option><option value="2">2 Meses</option>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs" style={{ color: 'var(--blue-900)' }}>Estado del Caso</Label>
-                      <Select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>{STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}</Select>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs" style={{ color: 'var(--blue-900)' }}>Detalle de la Gestión</Label>
-                    <Textarea required value={newNote} onChange={(e) => setNewNote(e.target.value)} style={{ borderColor: 'var(--blue-200)' }} />
-                  </div>
-                  <Button type="submit" disabled={isSubmittingNote} style={{ backgroundColor: 'var(--blue-600)', color: 'white' }}>
-                    {isSubmittingNote ? 'Guardando...' : 'Guardar Gestión'}
-                  </Button>
-                </form>
-              </div>
-
-              {/* Timeline */}
-              <div style={{ borderTop: '1px solid var(--zinc-200)', paddingTop: '1rem' }}>
-                <h3 className="text-sm font-bold mb-4 d-flex items-center"><Clock size={16} style={{ marginRight: '0.5rem' }}/> Historial de Gestiones</h3>
-                <div className="timeline">
-                  {selectedReport.history.map((h, i) => (
-                    <div key={i} className="timeline-item">
-                      <div className="timeline-marker timeline-marker-blue"></div>
-                      <div className="timeline-content">
-                        <div className="d-flex justify-between items-center mb-4">
-                          <Badge variant="secondary" style={{ backgroundColor: 'var(--blue-50)', color: 'var(--blue-700)' }}>{h.accion}</Badge>
-                          <span className="text-xs text-zinc-400">{h.date}</span>
-                        </div>
-                        <p className="text-sm">{h.note}</p>
-                        <div className="d-flex justify-between items-center text-xs text-zinc-500 mt-4" style={{ paddingTop: '0.5rem', borderTop: '1px solid var(--zinc-100)' }}>
-                          <span className="d-flex items-center"><Activity size={12} style={{ marginRight: '0.25rem' }}/> {h.sistema}</span>
-                          <span className="italic">— {h.author}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="timeline-item">
-                    <div className="timeline-marker timeline-marker-dark"></div>
-                    <div className="timeline-content" style={{ backgroundColor: 'var(--zinc-50)' }}>
-                      <div className="d-flex justify-between items-center mb-4">
-                        <span className="font-bold text-sm">Apertura del Caso</span>
-                        <span className="text-xs text-zinc-400">{selectedReport.date}</span>
-                      </div>
-                      <p className="text-xs text-zinc-500">Reportado por: <strong>{selectedReport.leaderDocument}</strong></p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+            {error && <p className="error-message">{error}</p>}
+            <button disabled={loading || !document} type="submit" className="btn btn-primary w-full">
+              {loading ? 'Verificando...' : 'Ingresar al Sistema'}
+            </button>
+          </form>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
