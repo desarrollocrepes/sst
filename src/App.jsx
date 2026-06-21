@@ -1,938 +1,777 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LayoutDashboard, Ticket, AlertTriangle, Search, Plus, 
-  User, CheckCircle2, Clock, AlertCircle, ShieldAlert,
-  LogOut, Users, FileText, Briefcase, MapPin, Phone, Mail,
-  RefreshCw, ChevronRight, Activity, UserCircle
+import React, { useState, useEffect } from 'react';
+import {
+  Ticket, Search, Plus, User, CheckCircle2, Clock, AlertCircle, ShieldAlert,
+  LogOut, FileText, Briefcase, MapPin, Phone, Mail, RefreshCw, ChevronRight,
+  Activity, UserCircle
 } from 'lucide-react';
-import './App.css'
+import './App.css';
 
+// ==========================================
+// 1. CONFIGURACIÓN Y CONSTANTES
+// ==========================================
 const STRAPI_BASE_URL = 'https://macfer.crepesywaffles.com/api';
+const BUK_API_URL = 'https://apialohav2.crepesywaffles.com/buk/empleados3';
 
-// --- HELPER COMPONENTS ---
-const StatusBadge = ({ status }) => {
-  const normalizedStatus = status?.toLowerCase() || '';
-  let badgeClass = 'badge-default';
-  
-  if (normalizedStatus.includes('abierto')) badgeClass = 'badge-danger';
-  if (normalizedStatus.includes('seguimiento')) badgeClass = 'badge-warning';
-  if (normalizedStatus.includes('cerrado')) badgeClass = 'badge-success';
-  
-  return (
-    <span className={`badge ${badgeClass}`}>
-      {status}
-    </span>
-  );
+// ==========================================
+// 2. UTILIDADES (Funciones matemáticas y de formato)
+// ==========================================
+
+// Formatea una fecha para que se vea como DD/MM/AAAA
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+// Calcula la edad exacta basándose en la fecha de nacimiento
+const calculateAgeFromBirthDate = (birthDate) => {
+  if (!birthDate) return null;
+  const parsed = new Date(birthDate);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - parsed.getFullYear();
+  const m = today.getMonth() - parsed.getMonth();
+  // Si aún no ha cumplido años este año, restamos 1
+  return (m < 0 || (m === 0 && today.getDate() < parsed.getDate())) ? age - 1 : age;
+};
+
+// Calcula el Índice de Masa Corporal (IMC) y retorna el color/etiqueta correspondiente
 const calculateBMI = (peso, talla) => {
   if (!peso || !talla) return { value: '-', label: 'N/A', cssClass: 'bmi-default' };
   const imc = (peso / (talla * talla)).toFixed(1);
-  let label = '';
-  let cssClass = '';
-  
-  if (imc < 18.5) { label = 'Bajo peso'; cssClass = 'bmi-low'; }
-  else if (imc >= 18.5 && imc < 25) { label = 'Peso normal'; cssClass = 'bmi-normal'; }
-  else if (imc >= 25 && imc < 30) { label = 'Sobrepeso'; cssClass = 'bmi-warning'; }
-  else { label = 'Obesidad'; cssClass = 'bmi-danger'; }
-  
-  return { value: imc, label, cssClass };
+  if (imc < 18.5) return { value: imc, label: 'Bajo peso', cssClass: 'bmi-low' };
+  if (imc < 25) return { value: imc, label: 'Peso normal', cssClass: 'bmi-normal' };
+  if (imc < 30) return { value: imc, label: 'Sobrepeso', cssClass: 'bmi-warning' };
+  return { value: imc, label: 'Obesidad', cssClass: 'bmi-danger' };
 };
 
-// --- MAIN APP COMPONENT ---
-export default function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [allBukUsers, setAllBukUsers] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [loadingData, setLoadingData] = useState(false);
-  
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [searchTerm, setSearchTerm] = useState('');
+// Estandariza los datos que vienen de la API para que siempre tengan las mismas propiedades
+const normalizeBukUser = (user) => ({
+  ...user,
+  document_number: String(user.document_number) || '',
+  nombre: user.nombre || '',
+  foto: user.foto || null,
+  Celular: user.Celular || '',
+  correo: user.correo || '',
+  ingreso: user.ingreso || '',
+  area_nombre: user.area_nombre || '',
+  departamento: user.departamento || '',
+  direction: user.direction || '',
+  cargo: user.cargo || '',
+  genero: user.genero || '',
+  status: user.status || '',
+  birthday: user.birthday || ''
+});
 
+// ==========================================
+// 3. SERVICIOS DE API (Peticiones al servidor)
+// ==========================================
+
+// ¡Aquí unificamos la consulta repetida! Esta función trae los datos del empleado
+// y es usada tanto en el Login como al crear un nuevo reporte.
+const obtenerEmpleadoBuk = async (documento) => {
+  if (!documento) return null;
+  try {
+    const res = await fetch(`${BUK_API_URL}?documento=${documento}`);
+    if (!res.ok) throw new Error('Error al conectar con la API de empleados');
+    const json = await res.json();
+    // La API a veces devuelve un arreglo y a veces un objeto directo
+    const data = Array.isArray(json.data || json) ? (json.data || json)[0] : (json.data || json);
+    return data ? normalizeBukUser(data) : null;
+  } catch (err) {
+    console.error('Error cargando empleado:', err);
+    return null;
+  }
+};
+
+// ==========================================
+// 4. COMPONENTES UI (Piezas visuales reutilizables)
+// ==========================================
+
+const StatusBadge = ({ status }) => {
+  const s = status?.toLowerCase() || '';
+  const badgeClass = s.includes('abierto') ? 'badge-danger' :
+    s.includes('seguimiento') ? 'badge-warning' :
+      s.includes('cerrado') ? 'badge-success' : 'badge-default';
+  return <span className={`badge ${badgeClass}`}>{status}</span>;
+};
+
+const DashboardStats = ({ stats }) => {
+  const cards = [
+    { title: 'Total Casos', val: stats.total, color: 'blue', Icon: Ticket },
+    { title: 'Sin Atender (Abiertos)', val: stats.open, color: 'red', Icon: AlertCircle },
+    { title: 'En Seguimiento', val: stats.inProgress, color: 'amber', Icon: Clock },
+    { title: 'Casos Cerrados', val: stats.closed, color: 'emerald', Icon: CheckCircle2 }
+  ];
+  return (
+    <div className="stats-grid">
+      {cards.map(({ title, val, color, Icon }, i) => (
+        <div key={i} className="stat-card">
+          <div className="stat-info">
+            <p className="stat-title">{title}</p>
+            <p className={`stat-value ${color !== 'blue' ? `text-${color}` : ''}`}>{val}</p>
+          </div>
+          <div className={`stat-icon icon-${color}`}><Icon size={24} /></div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ==========================================
+// 5. MODALES (Ventanas emergentes complejas)
+// ==========================================
+
+const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
   const [selectedEmpId, setSelectedEmpId] = useState('');
-  const [reportType, setReportType] = useState('Incidente');
-  const [peso, setPeso] = useState('');
-  const [talla, setTalla] = useState('');
-  const [description, setDescription] = useState('');
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [empDetails, setEmpDetails] = useState(null);
+  const [form, setForm] = useState({ type: 'Incidente', peso: '', talla: '', gender: '', entityType: 'EPS', entityName: '', description: '' });
+  const [supportFile, setSupportFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [newNote, setNewNote] = useState('');
-  const [newStatus, setNewStatus] = useState('');
-  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const updateForm = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
-  const [showNewReportModal, setShowNewReportModal] = useState(false);
+  // Busca los datos del empleado seleccionado (primero en el equipo local, luego en la API)
+  const handleSelectEmployee = async (docNum) => {
+    setSelectedEmpId(docNum);
+    if (!docNum) return setEmpDetails(null);
 
-  // --- LOGIC ---
-  const mapStrapiToApp = (strapiData, bukUsers) => {
-    return strapiData.map(item => {
-      const att = item.attributes;
-      const bukUser = bukUsers.find(u => String(u.document_number) === String(att.empleado_documento)) || {};
+    // Buscamos si el empleado ya está en el estado de React (equipo del líder)
+    const teamEmp = currentUser.equipo?.find(emp => String(emp.document_number) === String(docNum));
+    const normEmp = teamEmp ? normalizeBukUser(teamEmp) : null;
+    setEmpDetails(normEmp);
 
-      return {
-        id: item.id,
-        strapiId: item.id,
-        employeeId: att.empleado_documento,
-        employeeName: att.empleado_nombre,
-        employeeDetails: {
-          foto: bukUser.foto || null,
-          documento: att.empleado_documento,
-          celular: bukUser.Celular || 'No registrado',
-          correo: bukUser.correo || 'No registrado',
-          cargo: bukUser.cargo || 'No registrado',
-          area: bukUser.area_nombre || att.pdv,
-          peso: att.peso,
-          talla: att.talla
-        },
-        leaderDocument: att.lider_documento,
-        pdv: att.pdv,
-        date: new Date(att.createdAt).toLocaleDateString(),
-        type: att.tipo_caso,
-        description: att.descripcion,
-        status: att.estado,
-        history: att.sst_seguimientos?.data?.map(seg => ({
-          id: seg.id,
-          date: new Date(seg.attributes.createdAt).toLocaleDateString(),
-          note: seg.attributes.nota,
-          author: seg.attributes.autor
-        })) || []
-      };
-    });
+    // Complementamos con una llamada a la API por si faltan datos recientes usando la función centralizada
+    const bukEmp = await obtenerEmpleadoBuk(docNum);
+    if (bukEmp) setEmpDetails({ ...normEmp, ...bukEmp });
   };
 
-  const fetchReports = async () => {
-    if (!currentUser) return;
-    setLoadingData(true);
-    try {
-      const url = `${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos&sort=createdAt:desc${
-        currentUser.role === 'LIDER' ? `&filters[lider_documento][$eq]=${currentUser.document}` : ''
-      }`;
-      const response = await fetch(url);
-      const json = await response.json();
-      
-      if (json.data) {
-        setReports(mapStrapiToApp(json.data, allBukUsers));
-      }
-    } catch (error) {
-      console.error("Error cargando reportes:", error);
-      alert("Hubo un error cargando los datos del servidor.");
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  useEffect(() => {
-    if (currentUser) fetchReports();
-  }, [currentUser]);
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setReports([]);
-    setAllBukUsers([]);
-    setActiveTab('dashboard');
-  };
-
-  const handleSubmitReport = async (e) => {
+  // Envía el reporte a Strapi
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const selectedEmployee = currentUser.equipo.find(e => String(e.document_number) === String(selectedEmpId));
-    if (!selectedEmployee || !description.trim()) return;
+    const emp = empDetails || currentUser.equipo.find(e => String(e.document_number) === String(selectedEmpId));
+    if (!emp || !form.description.trim()) return;
 
-    setIsSubmittingReport(true);
+    setIsSubmitting(true);
     try {
+      let archivoId = null;
+
+      // 1. Subir archivo PDF si existe
+      if (supportFile) {
+        const uploadData = new FormData();
+        uploadData.append('files', supportFile);
+        const upRes = await fetch(`${STRAPI_BASE_URL.replace('/api', '')}/api/upload`, { method: 'POST', body: uploadData });
+        if (!upRes.ok) throw new Error('Error al subir PDF.');
+        const upJson = await upRes.json();
+        archivoId = Array.isArray(upJson) ? upJson[0]?.id : upJson.id;
+      }
+
+      // 2. Estructurar los datos para Strapi
       const payload = {
         data: {
-          empleado_documento: String(selectedEmployee.document_number),
-          empleado_nombre: selectedEmployee.nombre,
-          lider_documento: currentUser.document,
-          pdv: currentUser.pdv,
-          tipo_caso: reportType,
-          descripcion: description,
-          peso: peso ? parseFloat(peso) : null,
-          talla: talla ? parseFloat(talla) : null,
-          estado: 'Abierto'
+          id_empleado: String(emp.document_number),
+          id_lider: String(currentUser.document),
+          genero: form.gender || null,
+          fecha_nacimiento: emp.birthday || null,
+          categoria: form.type,
+          entidad_cargo: form.entityType,
+          nombre_entidad: form.entityName || null,
+          peso_kg: form.peso ? parseFloat(form.peso) : null,
+          talla_m: form.talla ? parseFloat(form.talla) : null,
+          descripcion: form.description,
+          estado: 'Abierto',
+          archivo_pdf: archivoId || null
         }
       };
 
-      const response = await fetch(`${STRAPI_BASE_URL}/sst-reportes`, {
+      // 3. Enviar el reporte
+      const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) throw new Error("Error guardando reporte.");
 
-      if (!response.ok) throw new Error("Error en el servidor al guardar.");
-
-      setDescription('');
-      setPeso('');
-      setTalla('');
-      setSelectedEmpId('');
-      setShowNewReportModal(false);
-      await fetchReports();
-      
-    } catch (error) {
-      alert("Error enviando el reporte: " + error.message);
+      onRefresh(); // Recarga la tabla de datos
+      onClose();   // Cierra el modal
+    } catch (err) {
+      alert("Error: " + err.message);
     } finally {
-      setIsSubmittingReport(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleOpenCase = (report) => {
-    setSelectedReport(report);
-    setNewStatus(report.status || 'Abierto');
-    setNewNote('');
-  };
+  const emp = empDetails || normalizeBukUser(currentUser.equipo?.find(e => String(e.document_number) === selectedEmpId) || {});
 
-  const handleSaveFollowUp = async (e) => {
-    e.preventDefault();
-    if (!newNote.trim()) return;
+  const CATEGORIAS = ['Incidente', 'Accidente Leve', 'Accidente Grave', 'Condición Insegura', 'Enfermedad Laboral', 'Reincorporación post incapacidad', 'Recomendaciones medicas', 'Recomendaciones nutricionales', 'Incapacidades recurrentes'];
+  const ENTIDADES = ['EPS', 'ARL', 'Medicina prepagada'];
 
-    setIsSubmittingNote(true);
-    try {
-      const segRes = await fetch(`${STRAPI_BASE_URL}/sst-seguimientos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { nota: newNote, autor: currentUser.name } })
-      });
-      if (!segRes.ok) throw new Error('Error al guardar el seguimiento');
-      const segData = await segRes.json();
-      const newSegId = segData.data.id;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-window wide-modal">
+        <div className="modal-header">
+          <button onClick={onClose} className="btn btn-dark">Cerrar</button>
+        </div>
+        <div className="modal-body">
+          <form onSubmit={handleSubmit} className="form-card">
 
-      const existingSegIds = selectedReport.history.map(h => h.id);
+            {/* Sección: Selección de Colaborador */}
+            <div className="form-section">
+              <div className="form-group">
+                <label>Seleccionar colaborador</label>
+                <select className="form-control" value={selectedEmpId} onChange={(e) => handleSelectEmployee(e.target.value)} required>
+                  <option value="" disabled>-- Seleccione --</option>
+                  {currentUser.equipo?.map(e => <option key={e.document_number} value={e.document_number}>{e.document_number} - {e.nombre}</option>)}
+                </select>
+              </div>
 
-      const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${selectedReport.strapiId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: { estado: newStatus, sst_seguimientos: [...existingSegIds, newSegId] }
-        })
-      });
-      if (!repRes.ok) throw new Error('Error al actualizar el estado del caso');
-
-      await fetchReports();
-      setSelectedReport(null);
-    } catch (error) {
-      alert("Error: " + error.message);
-    } finally {
-      setIsSubmittingNote(false);
-    }
-  };
-
-  if (!currentUser) {
-    return <Login onLogin={(user, fullBuk) => { setAllBukUsers(fullBuk); setCurrentUser(user); }} />;
-  }
-
-  const filteredTickets = reports.filter(ticket => 
-    ticket.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const stats = {
-    total: reports.length,
-    open: reports.filter(t => t.status === 'Abierto').length,
-    inProgress: reports.filter(t => t.status === 'En Seguimiento').length,
-    closed: reports.filter(t => t.status === 'Cerrado').length
-  };
-
-  const renderDashboard = () => (
-    <div className="view-container">
-      <div className="view-header">
-        <div>
-          <div className="topbar-actions">
-            <div className="user-header">
-              <div className="user-info">
-                {currentUser.foto ? (
-                  <img
-                    src={currentUser.foto}
-                    alt="Perfil"
-                    className="user-avatar"
-                  />
-                ) : (
-                  <div className="user-avatar-fallback">
-                    <User size={14} />
+              {/* Muestra los datos del colaborador si ya se seleccionó uno */}
+              {selectedEmpId && emp && (
+                <div className="employee-preview">
+                  <div className="employee-header">
+                    {emp.foto ? <img src={emp.foto} alt="Foto" className="avatar" /> : <div className="avatar placeholder">{emp.nombre?.charAt(0)}</div>}
+                    <div className="employee-info">
+                      <h3>{emp.nombre}</h3>
+                    </div>
                   </div>
-                )}
+                  <div className="employee-form">
+                    
+                    <div className="form-column">
+                      
+                      <div className="form-group">
+                        <label>Género</label>
+                        <select value={form.gender} onChange={(e) => updateForm('gender', e.target.value)} className="form-control" required>
+                          <option value="">-- Seleccione --</option><option value="HOMBRE">Hombre</option><option value="MUJER">Mujer</option><option value="OTRO">Otro</option>
+                        </select>
+                      </div>
+                      
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                <h2>¡Hola, {currentUser.name}!</h2>
+            {/* Sección: Detalles de la Novedad */}
+            <div className="form-section">
+              <h3 className="section-title"><FileText size={18} /> Detalles de la Novedad</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Categoría</label>
+                  <select value={form.type} onChange={(e) => updateForm('type', e.target.value)} className="form-control">
+                    {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Entidad a cargo</label>
+                  <select value={form.entityType} onChange={(e) => updateForm('entityType', e.target.value)} className="form-control">
+                    {ENTIDADES.map(en => <option key={en} value={en}>{en}</option>)}
+                  </select>
+                </div>
+                <div className="form-group"><label>Nombre Entidad</label><input value={form.entityName} onChange={(e) => updateForm('entityName', e.target.value)} className="form-control" required /></div>
+                <div className="form-group"><label>Peso (kg)</label><input type="number" step="0.1" required className="form-control" value={form.peso} onChange={(e) => updateForm('peso', e.target.value)} /></div>
+                <div className="form-group"><label>Talla (m)</label><input type="number" step="0.01" required className="form-control" value={form.talla} onChange={(e) => updateForm('talla', e.target.value)} /></div>
               </div>
-
-              <div className="user-actions">
-                <button onClick={fetchReports} disabled={loadingData} className="btn btn-primary">
-                  <RefreshCw size={16} />
-                  <span>Actualizar</span>
-                </button>
-                <button onClick={handleLogout} className="btn btn-secondary">
-                  <LogOut size={18} />
-                  <span>Cerrar sesión</span>
-                </button>
+              <div className="form-group">
+                <label>Descripción</label>
+                <textarea required rows="4" value={form.description} onChange={(e) => updateForm('description', e.target.value)} className="form-control" placeholder="Explique qué pasó..."></textarea>
+              </div>
+              <div className="form-group">
+                <label>Adjuntos (PDF)</label>
+                <input type="file" accept="application/pdf" onChange={(e) => setSupportFile(e.target.files?.[0] || null)} className="form-control" />
+                {supportFile && <p className="text-small">Archivo: {supportFile.name}</p>}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      
-      {currentUser.role === 'SST' && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-info">
-              <p className="stat-title">Total Casos</p>
-              <p className="stat-value">{stats.total}</p>
-            </div>
-            <div className="stat-icon icon-blue">
-              <Ticket size={24} />
-            </div>
-          </div>
 
-          <div className="stat-card">
-            <div className="stat-info">
-              <p className="stat-title">Sin Atender (Abiertos)</p>
-              <p className="stat-value text-red">{stats.open}</p>
-            </div>
-            <div className="stat-icon icon-red">
-              <AlertCircle size={24} />
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-info">
-              <p className="stat-title">En Seguimiento</p>
-              <p className="stat-value text-amber">{stats.inProgress}</p>
-            </div>
-            <div className="stat-icon icon-amber">
-              <Clock size={24} />
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-info">
-              <p className="stat-title">Casos Cerrados</p>
-              <p className="stat-value text-emerald">{stats.closed}</p>
-            </div>
-            <div className="stat-icon icon-emerald">
-              <CheckCircle2 size={24} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="card table-card">
-        <div className="table-toolbar">
-          <div className="search-wrapper">
-            <Search className="search-icon" size={20} />
-            <input 
-              type="text" 
-              placeholder="Buscar por colaborador, ID o detalle..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-control"
-            />
-          </div>
-          {currentUser.role === 'LIDER' && (
-            <div>
-              <button
-                onClick={() => setShowNewReportModal(true)}
-                className="btn btn-primary"
-              >
-                <Plus size={18} /> Crear Nuevo Reporte
+            {/* Botones de acción */}
+            <div className="form-actions">
+              <button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
+              <button disabled={isSubmitting || !selectedEmpId} type="submit" className="btn btn-primary">
+                {isSubmitting ? 'Guardando...' : 'Enviar Reporte'}
               </button>
             </div>
-          )}
-        </div>
-
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Fecha</th>
-                <th>Identificación</th>
-                <th>Colaborador</th>
-                <th>Tipo</th>
-                {currentUser.role === 'SST' && (
-                  <th>Detalle</th>
-                )}
-                <th>Estado</th>
-                {currentUser.role === 'SST' && (
-                  <th>Acción</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTickets.map(ticket => (
-                <tr key={ticket.id}>
-                  <td>
-                    <p className="font-bold">{ticket.id}</p>
-                  </td>
-                  <td>
-                    <p className="text-bold">{ticket.date}</p>
-                  </td>
-                  <td>
-                    <p className="text-bold">{ticket.employeeId}</p>
-                  </td>
-                  <td>
-                    <p className="font-bold">{ticket.employeeName}</p>
-                  </td>
-                  <td>
-                    <p className="font-bold">{ticket.type}</p>
-                  </td>
-                  {currentUser.role === 'SST' && (
-                    <td>
-                      <p className="text-bold truncate">{ticket.description}</p>
-                    </td>
-                  )}
-                  <td>
-                    <StatusBadge status={ticket.status} />
-                  </td>
-                  {currentUser.role === 'SST' && (
-                    <td>
-                      <button onClick={() => handleOpenCase(ticket)} className="btn btn-outline-primary btn-sm">
-                        {currentUser.role === 'SST' ? 'Gestionar' : 'Ver Detalles'} <ChevronRight size={16} />
-                      </button>
-                    </td>
-                  )}
-                  
-                </tr>
-              ))}
-              {filteredTickets.length === 0 && !loadingData && (
-                <tr>
-                  <td colSpan="5" className="text-center p-large text-muted">
-                    No hay casos registrados o que coincidan con la búsqueda.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          </form>
         </div>
       </div>
     </div>
   );
+};
 
-  const renderNewTicket = () => {
-    const selectedEmployee = currentUser.equipo?.find(e => String(e.document_number) === selectedEmpId);
-
-    return (
+const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
+  <div className="drawer-timeline-item">
+    <div className={`drawer-timeline-dot ${isNewest ? 'newest' : ''}`}></div>
+    <div className={`drawer-timeline-card ${isOpen ? 'open' : ''}`}>
+      <button 
+        type="button"
+        onClick={() => toggleOpen(h.id)}
+        className="drawer-timeline-header-btn"
+      >
+        <div className="drawer-timeline-info">
+          <div className="drawer-timeline-meta">
+            <span className="drawer-timeline-date">{h.date}</span>
+            {isNewest && <span className="drawer-timeline-badge-new">Último</span>}
+          </div>
+          <h4 className="drawer-timeline-title">Gestión SST</h4>
+        </div>
+        <div className="drawer-timeline-author-sec">
+          <div className="drawer-timeline-author-info">
+            <p className="drawer-timeline-author-name">ID Admin: {h.author}</p>
+            <p className="drawer-timeline-author-role">Gestor</p>
+          </div>
+          <div className="drawer-timeline-avatar-placeholder">
+            <UserCircle size={20} />
+          </div>
+          <div className={`drawer-timeline-chevron ${isOpen ? 'rotated' : ''}`}>
+            <ChevronRight size={18} />
+          </div>
+        </div>
+      </button>
       
-        <form onSubmit={handleSubmitReport} className="form-card">
-          <div className="form-section">
-            <div className="form-group">
-              <label>Seleccionar miembro del equipo</label>
-              <select className="form-control" value={selectedEmpId} onChange={(e) => setSelectedEmpId(e.target.value)} required>
-                <option value="" disabled>-- Seleccione colaborador --</option>
-                {currentUser.equipo?.map(emp => (
-                  <option key={emp.document_number} value={emp.document_number}>{emp.nombre}</option>
-                ))}
-              </select>
+      <div className={`drawer-timeline-content-wrapper ${isOpen ? 'expanded' : ''}`}>
+        <div className="drawer-timeline-content">
+          <p>{h.note}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
+  const [form, setForm] = useState({
+    note: '', status: report.status || 'Abierto', action: report.accion || 'Compromiso autocuidado',
+    system: report.sistema_afectado || 'No Aplica', duration: report.temporalidad || 'No Aplica'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(
+    // Abrir por defecto el historial más reciente si existe
+    report.history.length > 0 ? { [report.history[0].id]: true } : {}
+  );
+
+  const updateForm = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const toggleHistory = (id) => setHistoryOpen(p => ({ ...p, [id]: !p[id] }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.note.trim()) return;
+    setIsSubmitting(true);
+
+    try {
+      const segRes = await fetch(`${STRAPI_BASE_URL}/sst-seguimientos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { id_admin: String(currentUser.document), descripcion: form.note, sst_reporte: report.strapiId } })
+      });
+      if (!segRes.ok) throw new Error('Error guardando seguimiento');
+
+      const newSegId = (await segRes.json()).data.id;
+
+      const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${report.strapiId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: {
+            estado: form.status, accion: form.action, sistema_afectado: form.system, temporalidad: form.duration,
+            sst_seguimientos: [...report.history.map(h => h.id), newSegId]
+          }
+        })
+      });
+      if (!repRes.ok) throw new Error('Error actualizando estado');
+
+      onRefresh(); onClose();
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const details = report.employeeDetails || {};
+  const bmi = calculateBMI(details.peso_kg, details.talla_m);
+
+  const ACCIONES = ['Compromiso autocuidado', 'Reincoporacion laboral', 'Acta de seguimiento', 'Autorización de lonchera', 'Cierre de reincorporación', 'Otra'];
+  const SISTEMAS = ['No Aplica', 'Genitourinario', 'Dermatológico', 'Cardiovascular', 'Gastrointestinal', 'Respiratorio', 'Inmunologico', 'Alimenticio', 'Neurologico', 'Neoplasias'];
+  const TEMPORALIDADES = ['No Aplica', '1 mes', '3 meses'];
+  const ESTADOS = ['Abierto', 'En Seguimiento', 'Cerrado', 'Retirado'];
+
+  return (
+    <div className="drawer-overlay" onClick={onClose}>
+      <div className="drawer-panel" onClick={e => e.stopPropagation()}>
+        
+        {/* --- COLUMNA IZQUIERDA: CONTEXTO --- */}
+        <div className="drawer-left">
+          <div className="drawer-left-header">
+            <button onClick={onClose} className="drawer-close-btn"><LogOut size={20} /></button>
+            <span className="drawer-id-badge"><ShieldAlert size={14} /> ID: #{report.id}</span>
+            <p className="drawer-sub-title"><Clock size={14}/> Reportado el {report.date} por ID: {report.leaderDocument}</p>
+          </div>
+
+          <div className="drawer-section">
+            
+            <div className="drawer-profile-header">
+              {details.foto ? <img src={details.foto} alt="Perfil" className="drawer-avatar" /> : <div className="drawer-avatar placeholder">{report.employeeName.charAt(0)}</div>}
+              <div>
+                <h2 className="drawer-profile-name">{details.employeeName}</h2>
+                <p className="drawer-profile-doc">CC: {details.documento}</p>
+                <span className="drawer-profile-tag">Ingreso: {details.ingreso}</span>
+              </div>
             </div>
 
-            {selectedEmployee && (
-              <div className="employee-preview">
+            <div className="drawer-contact-list">
+              <div className="drawer-contact-item highlight">
+                <Briefcase size={16} />
+                <div>
+                  <strong>{details.cargo}</strong>
+                  <span>{details.direction}</span>
+                </div>
+              </div>
+              <div className="drawer-contact-item"><MapPin size={16} /> <span>{details.area_nombre} - {details.departamento}</span></div>
+              <div className="drawer-contact-item"><Phone size={16} /> <span>{details.Celular}</span></div>
+              <div className="drawer-contact-item"><Mail size={16} /> <span>{details.correo}</span></div>
+              <div className="drawer-contact-item"><UserCircle size={16} /> <span>{details.age != null ? `${details.age} años` : 'N/R'} - {details.genero || 'N/R'}</span></div>
+            </div>
 
-                {/* Header */}
-                <div className="employee-header">
-                  {selectedEmployee.foto ? (
-                    <img
-                      src={selectedEmployee.foto}
-                      alt="Foto"
-                      className="avatar"
-                    />
-                  ) : (
-                    <div className="avatar placeholder">
-                      {selectedEmployee.nombre.charAt(0)}
+            <div className="drawer-biometrics">
+              <div className="drawer-bio-box">
+                <span className="drawer-bio-label">Peso</span>
+                <strong className="drawer-bio-val">{details.peso_kg || '--'} <small>kg</small></strong>
+              </div>
+              <div className="drawer-bio-box">
+                <span className="drawer-bio-label">Talla</span>
+                <strong className="drawer-bio-val">{details.talla_m || '--'} <small>m</small></strong>
+              </div>
+              <div className={`drawer-bio-box bmi-box ${bmi.cssClass}`}>
+                <span className="drawer-bio-label">IMC</span>
+                <strong className="drawer-bio-val">{bmi.value}</strong>
+                <div className="drawer-bmi-indicator"></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="drawer-section drawer-context-section">
+            <h3 className="drawer-section-title"><FileText size={16} /> Contexto del Caso</h3>
+            <div className="drawer-context-card">
+              <div className="drawer-context-row">
+                <span className="drawer-context-label">Categoría</span>
+                <strong className="drawer-context-val">{report.type}</strong>
+              </div>
+              <div className="drawer-context-row">
+                <span className="drawer-context-label">Entidad</span>
+                <span className="drawer-context-val">{report.entityCharge} - {report.entityName}</span>
+              </div>
+              <div className="drawer-context-row">
+                <span className="drawer-context-label">Estado Actual</span>
+                <StatusBadge status={report.status} />
+              </div>
+              <div className="drawer-context-desc">
+                <span className="drawer-context-label">Descripción Original</span>
+                <p>"{report.description}"</p>
+              </div>
+              {report.fileAttachment?.url && (
+                <div className="drawer-context-row" style={{marginTop: '10px'}}>
+                  <a href={report.fileAttachment.url.startsWith('http') ? report.fileAttachment.url : `${STRAPI_BASE_URL.replace('/api', '')}${report.fileAttachment.url}`} target="_blank" rel="noreferrer" className="btn btn-outline-primary btn-sm block-btn">
+                    Ver Archivo Adjunto
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* --- COLUMNA DERECHA: INTERACCIÓN --- */}
+        <div className="drawer-right">
+          
+
+          <div className="drawer-body">
+            <div className="drawer-content-max">
+              <h3 className="drawer-section-title"><Clock size={16} /> Historial de Seguimiento</h3>
+              
+              <div className="drawer-timeline-container">
+                {report.history.map((h, index) => (
+                  <TimelineItem 
+                    key={h.id} 
+                    h={h} 
+                    isNewest={index === 0} 
+                    isOpen={!!historyOpen[h.id]} 
+                    toggleOpen={toggleHistory} 
+                  />
+                ))}
+                
+                {report.history.length === 0 && (
+                  <div className="drawer-timeline-item">
+                    <div className="drawer-timeline-dot"></div>
+                    <div className="drawer-timeline-card empty">
+                      <p>Aún no hay gestiones registradas para este caso.</p>
                     </div>
-                  )}
-
-                  <div className="employee-info">
-                    <h3>{selectedEmployee.nombre}</h3>
-                    <p>{selectedEmployee.document_number}</p>
-                    <p>{selectedEmployee.fecha_ingreso}</p>
+                  </div>
+                )}
+                
+                {/* Evento inicial anclado al final */}
+                <div className="drawer-timeline-item">
+                  <div className="drawer-timeline-dot initial"></div>
+                  <div className="drawer-timeline-card">
+                    <div className="drawer-timeline-header-btn" style={{cursor: 'default', backgroundColor: '#fff'}}>
+                      <div className="drawer-timeline-info">
+                        <div className="drawer-timeline-meta"><span className="drawer-timeline-date">{report.date}</span></div>
+                        <h4 className="drawer-timeline-title">Apertura de Caso</h4>
+                      </div>
+                      <div className="drawer-timeline-author-sec">
+                        <div className="drawer-timeline-author-info"><p className="drawer-timeline-author-name">ID: {report.leaderDocument}</p><p className="drawer-timeline-author-role">Líder</p></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* Formulario */}
-                <form className="employee-form">
-
-                  {/* Columna izquierda - solo lectura */}
-                  <div className="form-column">
-                    <div className="form-group">
-                      <label>Cargo</label>
-                      <input
-                        type="text"
-                        value={selectedEmployee.cargo || ""}
-                        disabled
-                      />
+          {/* Formulario Sticky Inferior (Solo SST) */}
+          {currentUser.role === 'SST' && (
+            <div className="drawer-footer">
+              <div className="drawer-content-max">
+                <div className="drawer-footer-title">
+                  
+                  <h3>Registrar Nueva Gestión</h3>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="drawer-form">
+                  <div className="drawer-form-grid">
+                    <div className="form-group-compact">
+                      <label>Acción</label>
+                      <select value={form.action} onChange={e => updateForm('action', e.target.value)}>{ACCIONES.map(a => <option key={a} value={a}>{a}</option>)}</select>
                     </div>
-
-                    <div className="form-group">
-                      <label>Área</label>
-                      <input
-                        type="text"
-                        value={selectedEmployee.area_nombre || ""}
-                        disabled
-                      />
+                    <div className="form-group-compact">
+                      <label>Sistema</label>
+                      <select value={form.system} onChange={e => updateForm('system', e.target.value)}>{SISTEMAS.map(s => <option key={s} value={s}>{s}</option>)}</select>
                     </div>
-
-                    <div className="form-group">
-                      <label>Departamento</label>
-                      <input
-                        type="text"
-                        value={selectedEmployee.departamento || ""}
-                        disabled
-                      />
+                    <div className="form-group-compact">
+                      <label>Temporalidad</label>
+                      <select value={form.duration} onChange={e => updateForm('duration', e.target.value)}>{TEMPORALIDADES.map(t => <option key={t} value={t}>{t}</option>)}</select>
                     </div>
-
-                    <div className="form-group">
-                      <label>Dirección</label>
-                      <input
-                        type="text"
-                        value={selectedEmployee.direction || ""}
-                        disabled
-                      />
+                    <div className="form-group-compact">
+                      <label>Estado</label>
+                      <select value={form.status} onChange={e => updateForm('status', e.target.value)}>{ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}</select>
                     </div>
                   </div>
 
-                  {/* Columna derecha - editable */}
-                  <div className="form-column">
-                    <div className="form-group">
-                      <label>Celular</label>
-                      <input
-                        type="text"
-                        defaultValue={selectedEmployee.celular || ""}
-                      />
+                  <div className="drawer-form-action-row">
+                    <div className="drawer-form-textarea">
+                      <label>Detalles del seguimiento</label>
+                      <textarea required rows="2" placeholder="Escribe aquí los detalles de la gestión..." value={form.note} onChange={e => updateForm('note', e.target.value)}></textarea>
                     </div>
-
-                    <div className="form-group">
-                      <label>Correo</label>
-                      <input
-                        type="email"
-                        defaultValue={selectedEmployee.correo || ""}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label>Género</label>
-                      <select>
-                        <option value="">Seleccione</option>
-                        <option value="M">Masculino</option>
-                        <option value="F">Femenino</option>
-                        <option value="O">Otro</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Edad</label>
-                      <input type="number" />
-                    </div>
+                    <button type="submit" disabled={isSubmitting} className="drawer-submit-btn">
+                      <span>{isSubmitting ? 'Guardando...' : 'Guardar'}</span>
+                    </button>
                   </div>
                 </form>
               </div>
-            )}
-          </div>
-
-          <div className="form-section">
-            <h3 className="section-title"><FileText size={18} /> Detalles de la Novedad</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Categoría</label>
-                <select value={reportType} onChange={(e) => setReportType(e.target.value)} className="form-control">
-                  <option value="Incidente">Incidente</option>
-                  <option value="Accidente Leve">Accidente Leve</option>
-                  <option value="Accidente Grave">Accidente Grave</option>
-                  <option value="Condición Insegura">Condición Insegura</option>
-                  <option value="Enfermedad Laboral">Enfermedad Laboral</option>
-                  <option value="Reincorporación post incapacidadl">Reincorporación post incapacidadl</option>
-                  <option value="Recomendaciones medicas">Recomendaciones medicas</option>
-                  <option value="Recomendaciones nutricionales">Recomendaciones nutricionales</option>
-                  <option value="Incapacidades recurrentes">Incapacidades recurrentes</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Entidad a cargo</label>
-                <select>
-                  <option value="EPS">EPS</option>
-                  <option value="ARL">ARL</option>
-                  <option value="Medicina prepagada">Medicina prepagada</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Nombre de Entidad</label>
-                <input/>
-              </div>
-              <div className="form-group">
-                <label>Peso (kg)</label>
-                <input type="number" step="0.1" required placeholder="Ej: 70.5" className="form-control" value={peso} onChange={(e) => setPeso(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Talla (m)</label>
-                <input type="number" step="0.01" required placeholder="Ej: 1.75" className="form-control" value={talla} onChange={(e) => setTalla(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Descripción de lo sucedido</label>
-              <textarea required rows="4" value={description} onChange={(e) => setDescription(e.target.value)} className="form-control" placeholder="Explique qué pasó, dónde, cómo y cuándo..."></textarea>
-            </div>
-
-            <div className="form-group">
-              <label>Adjuntos</label>
-              <input/>
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button
-              type="button"
-              onClick={() => setShowNewReportModal(false)}
-              className="btn btn-secondary"
-            >
-              Cancelar
-            </button>
-            <button disabled={isSubmittingReport || !selectedEmpId} type="submit" className="btn btn-primary">
-              {isSubmittingReport ? 'Guardando...' : 'Enviar Reporte'}
-            </button>
-          </div>
-        </form>
-      
-    );
-  }
-
-  return (
-    <>
-      
-      <div className="app-layout">
-        {/* Contenido Principal */}
-        <main className="main-content">
-          
-          <div className="content-area">
-            {renderDashboard()}
-          </div>
-
-          {/* MODAL GESTIÓN DE CASO */}
-          {selectedReport && (
-            <div className="modal-overlay">
-              <div className="modal-window">
-                
-                <div className="modal-header">
-                  <div>
-                     <h2>Gestión del Caso: {selectedReport.id}</h2>
-                     <p>Reportado el {selectedReport.date}</p>
-                  </div>
-                  <button onClick={() => setSelectedReport(null)} className="btn btn-dark">
-                    Cerrar Panel
-                  </button>
-                </div>
-                
-                <div className="modal-body">
-                  {/* COLUMNA IZQUIERDA: Perfil */}
-                  <div className="modal-col profile-col">
-                    <div className="card profile-card">
-                      <div className="profile-header">
-                        {selectedReport.employeeDetails?.foto ? (
-                          <img src={selectedReport.employeeDetails.foto} alt="Perfil" className="profile-img" />
-                        ) : (
-                          <div className="profile-img placeholder">
-                            {selectedReport.employeeName.charAt(0)}
-                          </div>
-                        )}
-                        <h3>{selectedReport.employeeName}</h3>
-                        <p>{selectedReport.employeeDetails?.documento}</p>
-                        <p>fecha ingreso (calcular antigúedad)</p>
-                      </div>
-                      
-                      <div className="profile-body">
-                        <div className="contact-info">
-                          <p><Briefcase size={16} /> {selectedReport.employeeDetails?.cargo}</p>
-                          <p><MapPin size={16} /> {selectedReport.employeeDetails?.area}</p>
-                          <p><Briefcase size={16} /> {selectedReport.employeeDetails?.direction}</p>
-                          <p><MapPin size={16} /> {selectedReport.employeeDetails?.departamento}</p>
-
-                          <p><Phone size={16} /> {selectedReport.employeeDetails?.celular}</p>
-                          <p><Mail size={16} /> {selectedReport.employeeDetails?.correo}</p>
-
-                          <p>edad</p>
-                          <p>genero</p>
-                        </div>
-
-                        <div className="biometric-section">
-                          
-                          <div className="biometric-grid">
-                            <div className="bio-card">
-                              <span>Peso</span>
-                              <strong>{selectedReport.employeeDetails?.peso || '--'} <small>kg</small></strong>
-                            </div>
-                            <div className="bio-card">
-                              <span>Talla</span>
-                              <strong>{selectedReport.employeeDetails?.talla || '--'} <small>m</small></strong>
-                            </div>
-                          </div>
-                          
-                          {(() => {
-                            const bmi = calculateBMI(selectedReport.employeeDetails?.peso, selectedReport.employeeDetails?.talla);
-                            return (
-                              <div className={`bmi-card ${bmi.cssClass}`}>
-                                <div>
-                                  <span>IMC Calculado</span>
-                                  <strong>{bmi.label}</strong>
-                                </div>
-                                <span className="bmi-value">{bmi.value}</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* COLUMNA CENTRAL */}
-                  <div className="modal-col details-col">
-                    <div className="detail-section">
-                      <h3 className="section-title"><FileText size={16}/> Detalles del Evento</h3>
-                      <div className="card p-4">
-                        <div className="detail-row"><span>Categoría</span> <strong>{selectedReport.type}</strong></div>
-                        
-                        
-                        <div className="description-box">
-                          <span>Descripción Reportada</span>
-                          <p>"{selectedReport.description}"</p>
-
-                          <span>entidad a cargo</span>
-                          <div className="detail-row align-center"><span>estado actual </span> <StatusBadge status={selectedReport.status} /></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {currentUser.role === 'SST' && (
-                      <div className="detail-section mt-4">
-                        <h3 className="section-title"><Activity size={16}/> Añadir Gestión</h3>
-                        <form onSubmit={handleSaveFollowUp} className="card p-4">
-                          
-                          <div className="form-group">
-                            <label>categoria accion</label>
-                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                              <option value="Compromiso autocuidado">Compromiso autocuidado</option>
-                              <option value="Reincoporacion laboral">Reincoporacion laboral</option>
-                              <option value="Acta de seguimiento">Acta de seguimiento</option>
-                              <option value="Autorización de lonchera">Autorización de lonchera</option>
-                              <option value="Cierre de reincorporación">Cierre de reincorporación</option>
-                              <option value="Otra">Otra</option>
-                            </select>
-                          </div>
-                          <div className="form-group">
-                            <label>sistema afectado</label>
-                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                              <option value="No Aplica">No Aplica</option>
-                              <option value="Genitourinario">Genitourinario</option>
-                              <option value="Dermatológico">Dermatológico</option>
-                              <option value="Cardiovascular">Cardiovascular</option>
-                              <option value="Gastrointestinal">Gastrointestinal</option>
-                              <option value="Respiratorio">Respiratorio</option>
-                              <option value="Inmunologico">Inmunologico</option>
-                              <option value="Alimenticio">Alimenticio</option>
-                              <option value="Neurologico">Neurologico</option>
-                              <option value="Neoplasias">Neoplasias</option>
-                            </select>
-                          </div>
-                          <div className="form-group">
-                            <label>temporalidad</label>
-                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                              <option value="No Aplica">No Aplica</option>
-                              <option value="1mes">1mes</option>
-                              <option value="3mes">3mes</option>
-                            </select>
-                          </div>
-                          <div className="form-group">
-                            <label>estado caso</label>
-                            <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                              <option value="Abierto">Abierto</option>
-                              <option value="En Seguimiento">En Seguimiento</option>
-                              <option value="Cerrado">Cerrado</option>
-                              <option value="Retirado">Retirado</option>
-                            </select>
-                          </div>
-
-                          <div className="form-group">
-                            <label>detalles gestion</label>
-                            <textarea rows="3" required className="form-control" placeholder="Acciones tomadas..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
-                          </div>
-                          <button type="submit" disabled={isSubmittingNote} className="btn btn-primary w-full">
-                            {isSubmittingNote ? 'Guardando...' : 'Guardar Gestión'}
-                          </button>
-                        </form>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* COLUMNA DERECHA: Timeline */}
-                  <div className="modal-col timeline-col">
-                    <h3 className="section-title"><Clock size={16}/> Línea de Tiempo</h3>
-                    
-                    <div className="timeline">
-                      <div className="timeline-item">
-                        <div className="timeline-dot dot-primary"></div>
-                        <div className="timeline-content">
-                          <div className="tl-header">
-                            <strong>Apertura del Caso</strong>
-                            <span className="tl-date">{selectedReport.date}</span>
-                          </div>
-                          <p className="tl-sub">Líder: <strong>{selectedReport.leaderDocument}</strong></p>
-                        </div>
-                      </div>
-
-                      {selectedReport.history.map((h, i) => (
-                        <div className="timeline-item" key={i}>
-                          <div className="timeline-dot dot-secondary"></div>
-                          <div className="timeline-content">
-                            <div className="tl-header">
-                              <strong>Gestión SST</strong>
-                              <span className="tl-date">{h.date}</span>
-                            </div>
-                            <p className="tl-text">{h.note}</p>
-                            <span className="tl-author">— {h.author}</span>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {selectedReport.history.length === 0 && (
-                        <div className="timeline-item">
-                           <div className="timeline-dot dot-muted"></div>
-                           <p className="tl-empty">Esperando gestión...</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
-
-          {showNewReportModal && (
-            <div className="modal-overlay">
-              <div
-                className="modal-window"
-                style={{
-                  maxWidth: '900px',
-                  width: '95%',
-                  maxHeight: '90vh',
-                  overflowY: 'auto'
-                }}
-              >
-                <div className="modal-header">
-                  <div>
-                    <h2>Nuevo Reporte SST</h2>
-                    <p>Registrar novedad de un colaborador</p>
-                  </div>
-
-                  <button
-                    onClick={() => setShowNewReportModal(false)}
-                    className="btn btn-dark"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-
-                <div className="modal-body">
-                  {renderNewTicket()}
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
+        </div>
       </div>
-    </>
+    </div>
   );
-}
+};
 
-// --- LOGIN COMPONENT ---
+// ==========================================
+// 6. PANTALLAS PRINCIPALES
+// ==========================================
+
 function Login({ onLogin }) {
-  const [document, setDocument] = useState('');
-  const [error, setError] = useState('');
+  const [doc, setDoc] = useState('');
+  const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!document) return;
-    setLoading(true);
-    setError('');
-
+    if (!doc) return;
+    setLoading(true); setErr('');
     try {
-      const response = await fetch(`https://apialohav2.crepesywaffles.com/buk/empleados3?documento=${document}`);
-      if (!response.ok) throw new Error('Error al conectar con el servidor');
+      // ¡Ahora usamos el servicio unificado!
+      const u = await obtenerEmpleadoBuk(doc);
+      if (!u || u.status !== 'activo') throw new Error(u ? 'Usuario inactivo' : 'Documento no encontrado');
 
-      const jsonResponse = await response.json();
-      const usersData = jsonResponse.data || [];
-      const user = Array.isArray(usersData) ? usersData[0] : usersData;
-      if (!user) {
-        throw new Error('Documento no encontrado.');
-      }
-      if (user.status !== 'activo') {
-        throw new Error('El usuario se encuentra inactivo.');
-      }
-
-      let role = '';
-      let equipoActivo = [];
-      if (user.departamento === 'Seguridad y Salud en el Trabajo' && user.direction === 'Dirección Desarrollo Humano') {
+      // Verificación de Roles y Permisos
+      let role = '', equipo = [];
+      if (u.departamento === 'Seguridad y Salud en el Trabajo' && u.direction === 'Dirección Desarrollo Humano') {
         role = 'SST';
-      } else if (user.lider === 1) {
+      } else if (u.lider === 1 || u.lider === '1' || u.lider === true) {
         role = 'LIDER';
-        if (Array.isArray(user.equipo)) {
-          equipoActivo = user.equipo.filter(emp => emp.status === 'activo');
-        }
+        equipo = Array.isArray(u.equipo) ? u.equipo.filter(e => String(e.status).toLowerCase() === 'activo') : [];
       } else {
-        throw new Error('No tiene los permisos requeridos.');
+        throw new Error('Sin permisos.');
       }
 
-      const userData = {
-        document: String(user.document_number),
-        name: user.nombre,
-        role: role,
-        pdv: user.area_nombre !== 'No Aplica' ? user.area_nombre : user.departamento,
-        area: user.area_nombre !== 'No Aplica' ? user.area_nombre : user.departamento,
-        equipo: equipoActivo,
-        cargo: user.cargo,
-        foto: user.foto
-      };
-
-      onLogin(userData, usersData);
-    } catch (err) {
-      setError(err.message || 'Error al iniciar sesión.');
+      const nLeader = normalizeBukUser(u);
+      const nTeam = equipo.map(normalizeBukUser);
+      // Pasamos los datos al componente App
+      onLogin({ document: nLeader.document_number, name: nLeader.nombre, role, area: nLeader.area_nombre, equipo: nTeam, cargo: nLeader.cargo, foto: nLeader.foto }, [nLeader, ...nTeam]);
+    } catch (e) {
+      setErr(e.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      
-      <div className="login-wrapper">
-        <div className="login-card card">
-          <div className="login-header">
-            <div className="login-icon">
-              <ShieldAlert size={40} />
+    <div className="login-wrapper">
+      <div className="login-card card">
+        <div className="login-header"><div className="login-icon"><ShieldAlert size={40} /></div><h1>SST</h1><p>Ingreso</p></div>
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label>Documento</label>
+            <div className="input-with-icon">
+              <UserCircle className="icon-left" size={20} />
+              <input type="number" value={doc} onChange={e => setDoc(e.target.value)} disabled={loading} className="form-control" placeholder="Ingrese documento..." />
             </div>
-            <h1>SST</h1>
-            <p>Ingreso</p>
           </div>
-          
-          <form onSubmit={handleSubmit} className="login-form">
-            <div className="form-group">
-              <label>Número de Documento</label>
-              <div className="input-with-icon">
-                <UserCircle className="icon-left" size={20} />
-                <input 
-                  type="number" 
-                  value={document}
-                  onChange={(e) => setDocument(e.target.value)}
-                  disabled={loading}
-                  className="form-control"
-                  placeholder="Ingrese su documento..."
-                />
+          {err && <p className="error-message">{err}</p>}
+          <button disabled={loading || !doc} type="submit" className="btn btn-primary btn-block">{loading ? 'Verificando...' : 'Ingresar'}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Componente Raíz de la Aplicación
+export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [allBukUsers, setAllBukUsers] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Obtiene los reportes desde Strapi según el rol (SST ve todo, Líder solo lo suyo)
+  const fetchReports = async () => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const filter = currentUser.role === 'LIDER' ? `&filters[id_lider][$eq]=${currentUser.document}` : '';
+      const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos,archivo_pdf&sort=createdAt:desc${filter}`);
+      const { data } = await res.json();
+
+      if (data) {
+        // Mapeamos los datos de Strapi cruzándolos con los datos estáticos de los empleados que ya tenemos
+        setReports(data.map(item => {
+          const att = item.attributes;
+          const buk = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(att.id_empleado)) || {});
+          const pdf = Array.isArray(att.archivo_pdf?.data) ? att.archivo_pdf.data[0] : (att.archivo_pdf?.data || att.archivo_pdf);
+          return {
+            id: String(item.id),
+            strapiId: item.id,
+            employeeId: att.id_empleado,
+            employeeName: buk.nombre,
+            employeeDetails: {foto: buk.foto,
+            documento: att.id_empleado,
+            celular: buk.Celular,
+            correo: buk.correo,
+            cargo: buk.cargo ,
+            area_nombre: buk.area_nombre,
+            departamento: buk.departamento,
+            direction: buk.direction || '-',
+            ingreso: buk.ingreso || '-',
+            peso_kg: att.peso_kg,
+            talla_m: att.talla_m,
+            birthDate: att.fecha_nacimiento,
+            age: calculateAgeFromBirthDate(att.fecha_nacimiento),
+            genero: att.genero || buk.genero || '-'
+            },
+            entityCharge: att.entidad_cargo || '-',
+            entityName: att.nombre_entidad || '-',
+            fileAttachment: pdf ? { id: pdf.id, name: pdf.attributes?.name || pdf.name, url: pdf.attributes?.url || null } : null,
+            leaderDocument: att.id_lider,
+            date: formatDate(att.createdAt),
+            type: att.categoria,
+            description: att.descripcion,
+            status: att.estado, 
+            accion: att.accion,
+            sistema_afectado: att.sistema_afectado, 
+            temporalidad: att.temporalidad,
+            history: (att.sst_seguimientos?.data || []).map(seg => ({ id: seg.id,
+            date: formatDate(seg.attributes.createdAt),
+            rawDate: seg.attributes.createdAt,
+            note: seg.attributes.descripcion,
+            author: seg.attributes.id_admin })).sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate))
+          };
+        }));
+      }
+    } catch (err) { alert("Error cargando servidor."); } finally { setLoading(false); }
+  };
+
+  // Se ejecuta al iniciar sesión para cargar la tabla
+  useEffect(() => { if (currentUser) fetchReports(); }, [currentUser]);
+
+  // Abre el modal de gestión y, si faltan datos del empleado, los busca en la API centralizada
+  const handleOpenCase = async (report) => {
+    const copy = { ...report };
+    if (!copy.employeeDetails?.Celular || copy.employeeDetails.Celular === 'N/R') {
+      const buk = await obtenerEmpleadoBuk(copy.employeeId);
+      if (buk) copy.employeeDetails = { ...copy.employeeDetails, ...buk, documento: copy.employeeId };
+    }
+    setSelectedReport(copy);
+  };
+
+  // Si no hay usuario, mostramos el Login
+  if (!currentUser) return <Login onLogin={(u, buk) => { setAllBukUsers(buk); setCurrentUser(u); }} />;
+
+  const filtered = reports.filter(t => [t.type, t.id, t.employeeName].some(v => v?.toLowerCase().includes(search.toLowerCase())));
+  const stats = { total: reports.length, open: reports.filter(t => t.status === 'Abierto').length, inProgress: reports.filter(t => t.status === 'En Seguimiento').length, closed: reports.filter(t => t.status === 'Cerrado').length };
+
+  return (
+    <div className="app-layout">
+      <main className="main-content">
+        <div className="content-area">
+          <div className="view-container">
+            {/* Cabecera Principal */}
+            <div className="view-header">
+              <div className="topbar-actions">
+                <div className="user-header">
+                  <div className="user-info">
+                    {currentUser.foto ? <img src={currentUser.foto} alt="Perfil" className="user-avatar" /> : <div className="user-avatar-fallback"><User size={14} /></div>}
+                    <h2>¡Hola, {currentUser.name}!</h2>
+                  </div>
+                  <div className="user-actions">
+                    <button onClick={fetchReports} disabled={loading} className="btn btn-primary"><RefreshCw size={16} /><span>Actualizar</span></button>
+                    <button onClick={() => { setCurrentUser(null); setReports([]); setAllBukUsers([]); }} className="btn btn-secondary"><LogOut size={18} /><span>Salir</span></button>
+                  </div>
+                </div>
               </div>
             </div>
-            {error && <p className="error-message">{error}</p>}
-            <button disabled={loading || !document} type="submit" className="btn btn-primary w-full">
-              {loading ? 'Verificando...' : 'Ingresar al Sistema'}
-            </button>
-          </form>
+
+            {/* Tarjetas de Estadísticas (Solo para SST) */}
+            {currentUser.role === 'SST' && <DashboardStats stats={stats} />}
+
+            {/* Tabla Principal */}
+            <div className="card table-card">
+              <div className="table-toolbar">
+                <div className="search-wrapper"><Search className="search-icon" size={20} /><input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="form-control" /></div>
+                {currentUser.role === 'LIDER' && <button onClick={() => setShowModal(true)} className="btn btn-primary"><Plus size={18} /> Crear Reporte</button>}
+              </div>
+
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>ID</th><th>Fecha</th><th>Cédula</th><th>Colaborador</th><th>Tipo</th>{currentUser.role === 'SST' && <th>Detalle</th>}<th>Estado</th>{currentUser.role === 'SST' && <th>Acción</th>}</tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(t => (
+                      <tr key={t.id}>
+                        <td><p className="table-bold-text">{t.id}</p></td><td><p className="table-bold-text">{t.date}</p></td><td><p className="table-bold-text">{t.employeeId}</p></td>
+                        <td><p className="table-bold-text">{t.employeeName}</p></td><td><p className="table-bold-text">{t.type}</p></td>
+                        {currentUser.role === 'SST' && <td><p className="table-text-truncate">{t.description}</p></td>}
+                        <td><StatusBadge status={t.status} /></td>
+                        {currentUser.role === 'SST' && <td><button onClick={() => handleOpenCase(t)} className="btn btn-outline-primary btn-sm">Gestionar <ChevronRight size={16} /></button></td>}
+                      </tr>
+                    ))}
+                    {!filtered.length && !loading && <tr><td colSpan="8" className="table-empty-state">No hay casos registrados.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </>
+
+        {/* Renderizado Condicional de Modales */}
+        {selectedReport && <CaseManagementModal report={selectedReport} currentUser={currentUser} onClose={() => setSelectedReport(null)} onRefresh={fetchReports} />}
+        {showModal && <NewReportModal currentUser={currentUser} onClose={() => setShowModal(false)} onRefresh={fetchReports} />}
+      </main>
+    </div>
   );
 }
