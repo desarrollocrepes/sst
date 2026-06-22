@@ -2,8 +2,8 @@
    Variables Globales
    ========================================================================== */
 :root {
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  --primary: #6F4E37;
+  --primary-hover: #6F4E37;
   --secondary: #64748b;
   --bg-main: #f1f5f9;
   --bg-drawer-left: #f8fafc;
@@ -13,30 +13,25 @@
   --text-muted: #64748b;
   
   /* Colores de estado */
-  --color-blue: #3b82f6;
-  --bg-blue: #dbeafe;
-  --color-red: #ef4444;
-  --bg-red: #fee2e2;
-  --color-amber: #f59e0b;
-  --bg-amber: #fef3c7;
-  --color-emerald: #10b981;
-  --bg-emerald: #d1fae5;
+  --color-blue: #FFF;
+  --bg-blue: #6F4E37;
+  --color-red: #FFF;
+  --bg-red: #6F4E37;
+  --color-amber: #FFF;
+  --bg-amber: #6F4E37;
+  --color-emerald: #FFF;
+  --bg-emerald: #6F4E37;
 }
 
 /* ==========================================================================
    Layout Principal
    ========================================================================== */
 .app-layout {
-  min-height: 100vh;
-  background-color: var(--bg-main);
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text-main);
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .main-content {
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .view-header {
@@ -309,7 +304,7 @@
 
 .drawer-panel {
   width: 100%;
-  max-width: 1200px; /* Ancho del drawer */
+  max-width: calc(100% - 30%); /* Ancho del drawer */
   height: 100%;
   background-color: var(--surface);
   box-shadow: -4px 0 25px rgba(0, 0, 0, 0.15);
@@ -414,13 +409,7 @@
   margin-bottom: 1.5rem;
 }
 
-.drawer-contact-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
+
 
 .drawer-contact-item.highlight {
   color: var(--text-main);
@@ -527,11 +516,6 @@
   overflow-y: auto;
   padding: 2rem;
   background: var(--surface);
-}
-
-.drawer-content-max {
-  max-width: 600px;
-  margin: 0 auto;
 }
 
 /* ==========================================================================

@@ -61,24 +61,21 @@ export const obtenerEmpleadoBuk = async (documento) => {
 export const mapearEstado = (estado) => {
   if (estado === true) return 'Abierto';
   if (estado === false) return 'Cerrado';
-  return 'Pendiente'; // Para null
+  return 'Pendiente'; 
 };
 
 export const mapStrapiToReports = (StrapiData, allBukUsers) => {
   return StrapiData.map(item => {
     const att = item.attributes;
-    // Búsqueda del empleado, líder y agente SST en la data cruzada
     const buk = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(att.id_empleado)) || {});
     const lider = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(att.id_lider)) || {});
     
-    // CORRECCIÓN: El campo en Strapi se llama "archivo", no "archivo_pdf"
     const pdf = Array.isArray(att.archivo?.data) ? att.archivo.data[0] : (att.archivo?.data || att.archivo);
     
     return {
       id: String(item.id),
       strapiId: item.id,
       employeeId: att.id_empleado,
-      // Fallback para evitar que salga en blanco si no estaba cacheado
       employeeName: buk.nombre || `Empleado C.C. ${att.id_empleado}`,
       employeeDetails: {
         foto: buk.foto,
@@ -96,13 +93,13 @@ export const mapStrapiToReports = (StrapiData, allBukUsers) => {
         age: calculateAgeFromBirthDate(att.fecha_nacimiento),
         genero: att.genero || buk.genero || '-'
       },
-      status: mapearEstado(att.estado), // String visual: 'Pendiente', 'Abierto', 'Cerrado'
-      statusBoolean: att.estado, // Lógica backend: null, true, false
+      status: mapearEstado(att.estado),
+      statusBoolean: att.estado,
       entityCharge: att.entidad_cargo || '-',
       entityName: att.nombre_entidad || '-',
       fileAttachment: pdf ? { id: pdf.id, name: pdf.attributes?.name || pdf.name, url: pdf.attributes?.url || null } : null,
       leaderDocument: att.id_lider,
-      leaderName: lider.nombre || `Líder ID: ${att.id_lider}`, // Guardamos datos del líder para la apertura
+      leaderName: lider.nombre || `Líder ID: ${att.id_lider}`,
       leaderFoto: lider.foto,
       date: formatDate(att.createdAt),
       type: att.categoria,
@@ -111,7 +108,6 @@ export const mapStrapiToReports = (StrapiData, allBukUsers) => {
       sistema_afectado: att.sistema_afectado, 
       temporalidad: att.temporalidad,
       history: (att.sst_seguimientos?.data || []).map(seg => {
-        // Buscar datos del analista SST que hizo el seguimiento
         const idGestor = seg.attributes.id_admin || seg.attributes.id_sst;
         const sstAdmin = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(idGestor)) || {});
         return { 
@@ -121,7 +117,11 @@ export const mapStrapiToReports = (StrapiData, allBukUsers) => {
           note: seg.attributes.descripcion,
           author: idGestor,
           authorName: sstAdmin.nombre || `Gestor ID: ${idGestor}`,
-          authorFoto: sstAdmin.foto || null
+          authorFoto: sstAdmin.foto || null,
+          // NUEVOS CAMPOS RECUPERADOS DE LA API (con fallback por si las mayúsculas en Strapi varían)
+          accion: seg.attributes.accion || seg.attributes.Accion || seg.attributes.Acción || 'No Aplica',
+          sistema: seg.attributes.sistema || seg.attributes.sistema_afectado || seg.attributes.Sistema || 'No Aplica',
+          temporalidad: seg.attributes.temporalidad || seg.attributes.Temporalidad || 'No Aplica'
         }
       }).sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate))
     };

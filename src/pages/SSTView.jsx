@@ -25,7 +25,7 @@ const DashboardStats = ({ stats }) => {
   );
 };
 
-// COMPONENTE ÚNICO DE TIMELINE (Muestra foto y nombre de quien comenta)
+// COMPONENTE ÚNICO DE TIMELINE (Ahora muestra la acción, sistema y temporalidad)
 const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
   <div className="drawer-timeline-item">
     <div className={`drawer-timeline-dot ${isNewest ? 'newest' : ''}`}></div>
@@ -48,13 +48,33 @@ const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
           <div className={`drawer-timeline-chevron ${isOpen ? 'rotated' : ''}`}><ChevronRight size={18} /></div>
         </div>
       </button>
-      <div className={`drawer-timeline-content-wrapper ${isOpen ? 'expanded' : ''}`}><div className="drawer-timeline-content"><p>{h.note}</p></div></div>
+      <div className={`drawer-timeline-content-wrapper ${isOpen ? 'expanded' : ''}`}>
+        <div className="drawer-timeline-content">
+          <p style={{ color: '#1e293b', lineHeight: '1.5' }}>{h.note}</p>
+          
+          {/* NUEVA SECCIÓN: Muestra los datos de Acción, Sistema y Temporalidad guardados en este seguimiento */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1' }}>
+            <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <span style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Acción</span>
+              <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600' }}>{h.accion}</span>
+            </div>
+            <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <span style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Sistema</span>
+              <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600' }}>{h.sistema}</span>
+            </div>
+            <div style={{ backgroundColor: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <span style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Temporalidad</span>
+              <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600' }}>{h.temporalidad}</span>
+            </div>
+          </div>
+          
+        </div>
+      </div>
     </div>
   </div>
 );
 
 const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
-  // Ajuste de los estados iniciales correctos
   const [form, setForm] = useState({ note: '', status: report.status || 'Pendiente', action: report.accion || 'Compromiso autocuidado', system: report.sistema_afectado || 'No Aplica', duration: report.temporalidad || 'No Aplica' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(report.history.length > 0 ? { [report.history[0].id]: true } : {});
@@ -67,18 +87,45 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
     if (!form.note.trim()) return;
     setIsSubmitting(true);
     
-    // Transformar a booleano real según la db
     let estadoBool = null;
     if (form.status === 'Abierto') estadoBool = true;
     if (form.status === 'Cerrado') estadoBool = false;
 
     try {
-      const segRes = await fetch(`${STRAPI_BASE_URL}/sst-seguimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { id_admin: String(currentUser.document), descripcion: form.note, sst_reporte: report.strapiId } }) });
+      // 1. Enviar el seguimiento con los 3 nuevos campos
+      const segRes = await fetch(`${STRAPI_BASE_URL}/sst-seguimientos`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          data: { 
+            id_admin: String(currentUser.document), 
+            descripcion: form.note, 
+            sst_reporte: report.strapiId,
+            accion: form.action,           // NUEVO CAMPO
+            sistema: form.system,          // NUEVO CAMPO
+            temporalidad: form.duration    // NUEVO CAMPO
+          } 
+        }) 
+      });
       if (!segRes.ok) throw new Error('Error guardando seguimiento');
       const newSegId = (await segRes.json()).data.id;
 
-      const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${report.strapiId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { estado: estadoBool, accion: form.action, sistema_afectado: form.system, temporalidad: form.duration, sst_seguimientos: [...report.history.map(h => h.id), newSegId] } }) });
-      if (!repRes.ok) throw new Error('Error actualizando estado');
+      // 2. Actualizar el reporte padre
+      const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${report.strapiId}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          data: { 
+            estado: estadoBool, 
+            accion: form.action, 
+            sistema_afectado: form.system, 
+            temporalidad: form.duration, 
+            sst_seguimientos: [...report.history.map(h => h.id), newSegId] 
+          } 
+        }) 
+      });
+      if (!repRes.ok) throw new Error('Error actualizando estado del reporte padre');
+      
       onRefresh(); onClose();
     } catch (err) { alert("Error: " + err.message); } finally { setIsSubmitting(false); }
   };
@@ -89,16 +136,14 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
   const ACCIONES = ['Compromiso autocuidado', 'Reincoporacion laboral', 'Acta de seguimiento', 'Autorización de lonchera', 'Cierre de reincorporación', 'Otra'];
   const SISTEMAS = ['No Aplica', 'Genitourinario', 'Dermatológico', 'Cardiovascular', 'Gastrointestinal', 'Respiratorio', 'Inmunologico', 'Alimenticio', 'Neurologico', 'Neoplasias'];
   const TEMPORALIDADES = ['No Aplica', '1 mes', '3 meses'];
-  const ESTADOS = ['Pendiente', 'Abierto', 'Cerrado']; // Lógica corregida a 3 estados
+  const ESTADOS = ['Pendiente', 'Abierto', 'Cerrado']; 
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
       <div className="drawer-panel" onClick={e => e.stopPropagation()}>
         <div className="drawer-left">
           <div className="drawer-left-header">
-            <span className="drawer-id-badge">
-              Caso #{report.id}
-            </span>
+            <span className="drawer-id-badge">Caso #{report.id}</span>
           </div>
           <div className="drawer-section">
 
@@ -116,37 +161,31 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
                 <div>
                   <span><strong>Cargo:</strong> {details.cargo}</span>
                   <span><strong>Área:</strong> {details.area_nombre}</span>
-                  <span><strong>Dpto:</strong> {details.departamento}</span>
+                  <span><strong>Departamento:</strong> {details.departamento}</span>
+                  <span><strong>Dirección:</strong> {details.direction}</span>
                   <span><strong>Cel:</strong> {details.Celular}</span>
                   <span><strong>Correo:</strong> {details.correo}</span>
-                  <span><strong>Nacimiento:</strong> {details.birthDate || '--'}</span>
-                </div>
-                {/* Agregando la info extra solicitada del empleado en el modal */}
-                <div className="drawer-profile-info" style={{ marginTop: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
-                  <p className="drawer-profile-role"><strong>Género:</strong> {details.genero}</p>
-                  <p className="drawer-profile-role"><strong>Estado de reporte:</strong> {report.status}</p>
-                </div>
+                  <span><strong>Cumpleaños:</strong> {details.birthday}</span>
+                  <span><strong>Género:</strong> {details.genero}</span>
+                  <span><strong>Peso: </strong>{details.peso_kg} kg.</span>
+                  <span><strong>Talla: </strong>{details.talla_m} m.</span>
+                  <span><strong>IMC: </strong>{bmi.value}</span>
+                </div>               
               </div>
-            </div>
-
-            <div className="drawer-biometrics">
-              <div className="drawer-bio-box"><span className="drawer-bio-label">Peso</span><strong className="drawer-bio-val">{details.peso_kg || '--'} <small>kg</small></strong></div>
-              <div className="drawer-bio-box"><span className="drawer-bio-label">Talla</span><strong className="drawer-bio-val">{details.talla_m || '--'} <small>m</small></strong></div>
-              <div className={`drawer-bio-box bmi-box ${bmi.cssClass}`}><span className="drawer-bio-label">IMC</span><strong className="drawer-bio-val">{bmi.value}</strong><div className="drawer-bmi-indicator"></div></div>
             </div>
 
             <div className="drawer-context-card">
-              <div className="drawer-context-row">
-                <span className="drawer-context-label"><strong>Categoría:</strong> {report.type}</span>
-                <span className="drawer-context-label"><strong>Entidad:</strong> {report.entityCharge} - {report.entityName}</span>
-                <span className="drawer-context-label"><strong>Estado Actual</strong></span><StatusBadge status={report.status} />
+              <div className="drawer-contact-item highlight">
+                <span><strong>Categoría:</strong> {report.type}</span>
+                <span><strong>Entidad:</strong> {report.entityCharge}</span>
+                <span><strong>Nombre entidad: </strong> {report.entityName}</span>
+                <span><strong>Estado actual: </strong><StatusBadge status={report.status} /></span>
               </div>
               
-              {/* Botón para abrir el Archivo Adjunto */}
               {report.fileAttachment && report.fileAttachment.url && (
                 <div className="attachment-section" style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
                   <a 
-                    href={report.fileAttachment.url}
+                    href={report.fileAttachment.url} 
                     target="_blank" 
                     rel="noreferrer"
                     style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}
@@ -167,7 +206,6 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
                 {report.history.map((h, index) => <TimelineItem key={h.id} h={h} isNewest={index === 0} isOpen={!!historyOpen[h.id]} toggleOpen={toggleHistory} />)}
                 {report.history.length === 0 && <div className="drawer-timeline-item"><div className="drawer-timeline-dot"></div><div className="drawer-timeline-card empty"><p>Aún no hay gestiones registradas para este caso.</p></div></div>}
                 
-                {/* Ítem FIJO DE APERTURA: Muestra qué reportó el líder y los datos del líder */}
                 <div className="drawer-timeline-item">
                   <div className="drawer-timeline-dot initial"></div>
                   <div className="drawer-timeline-card">
@@ -230,13 +268,11 @@ export default function SSTView({ currentUser, allBukUsers, onLogout }) {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // Usamos archivo en vez de archivo_pdf
       const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos,archivo&sort=createdAt:desc`);
       const { data } = await res.json();
       if (data) {
         let mapped = mapStrapiToReports(data, allBukUsers || []);
         
-        // RECUPERACIÓN DINÁMICA: Si un empleado reportado no venía precargado en allBukUsers (Foto y nombre no se veían), aquí forzamos la carga.
         const missingDocs = [...new Set(mapped.filter(r => r.employeeName.startsWith('Empleado')).map(r => r.employeeId))];
         if (missingDocs.length > 0) {
           const fetchedUsers = await Promise.all(missingDocs.map(doc => obtenerEmpleadoBuk(doc)));
@@ -310,7 +346,6 @@ export default function SSTView({ currentUser, allBukUsers, onLogout }) {
                         <td><p className="table-bold-text">{t.date}</p></td>
                         <td><p className="table-bold-text">{t.employeeId}</p></td>
                         <td>
-                          {/* CAMBIO TABLA: Ahora siempre muestra foto y nombre con la validación del fetch dinámico */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {t.employeeDetails?.foto ? (
                               <img 
