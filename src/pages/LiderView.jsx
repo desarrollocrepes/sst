@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, RefreshCw, LogOut, FileText } from 'lucide-react';
+import { Search, Plus, User, RefreshCw, LogOut, FileText, UserCircle } from 'lucide-react';
 import { STRAPI_BASE_URL, normalizeBukUser, obtenerEmpleadoBuk, mapStrapiToReports, StatusBadge } from '../utils/helpers';
 
 const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
@@ -50,8 +50,8 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
           peso_kg: form.peso ? parseFloat(form.peso) : null,
           talla_m: form.talla ? parseFloat(form.talla) : null,
           descripcion: form.description,
-          estado: null, // null para que quede en "Pendiente" según tu nueva lógica
-          archivo: archivoId || null // CAMBIO: de archivo_pdf a archivo
+          estado: null, // null para que quede en "Pendiente"
+          archivo: archivoId || null // CAMBIO a "archivo"
         }
       };
 
@@ -67,13 +67,12 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
   const CATEGORIAS = ['Incidente', 'Accidente Leve', 'Accidente Grave', 'Condición Insegura', 'Enfermedad Laboral', 'Reincorporación post incapacidad', 'Recomendaciones medicas', 'Recomendaciones nutricionales', 'Incapacidades recurrentes'];
   const ENTIDADES = ['EPS', 'ARL', 'Medicina prepagada'];
 
-
-
   return (
-    <div className="drawer-overlay" onClick={onClose}>
-      <div className="drawer-panel drawer-panel-single" onClick={e => e.stopPropagation()}>        
+    // CAMBIO MODAL LIDER: Estructura y estilos forzados para que funcione como el Slide Over de SST
+    <div className="drawer-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, display: 'flex', justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000 }}>
+      <div className="drawer-panel drawer-panel-single" onClick={e => e.stopPropagation()} style={{ width: '500px', height: '100%', backgroundColor: '#fff', overflowY: 'auto', padding: '20px', animation: 'slideLeft 0.3s ease-out' }}>        
+        
         <div className="drawer-body">
-          
             <form onSubmit={handleSubmit} className="form-card">
             <div className="form-section">
               <div className="form-group">
@@ -85,9 +84,9 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
               </div>
               {selectedEmpId && emp && (
                 <div className="employee-preview">
-                  <div className="employee-header">
-                    {emp.foto ? <img src={emp.foto} alt="Foto" className="avatar" /> : <div className="avatar placeholder">{emp.nombre?.charAt(0)}</div>}
-                    <div className="employee-info"><h3>{emp.nombre}</h3></div>
+                  <div className="employee-header" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+                    {emp.foto ? <img src={emp.foto} alt="Foto" className="avatar" style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }} /> : <div className="avatar placeholder" style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{emp.nombre?.charAt(0)}</div>}
+                    <div className="employee-info"><h3 style={{ margin: 0 }}>{emp.nombre}</h3></div>
                   </div>
                   <div className="employee-form">
                     <div className="form-column">
@@ -126,7 +125,6 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
                 <textarea required rows="4" value={form.description} onChange={(e) => updateForm('description', e.target.value)} className="form-control" placeholder="Explique qué pasó..."></textarea>
               </div>
             </div>
-          
             
             <div className="form-group">
               <label>Archivo Adjunto (PDF o Imagen)</label>
@@ -138,7 +136,7 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
               />
             </div>
             
-            <button type="submit" className="btn btn-primary block-btn" disabled={isSubmitting}>
+            <button type="submit" className="btn btn-primary block-btn" disabled={isSubmitting} style={{ width: '100%', marginTop: '15px' }}>
               {isSubmitting ? 'Guardando...' : 'Crear Reporte'}
             </button>
           </form>
@@ -159,9 +157,23 @@ export default function LiderView({ currentUser, allBukUsers, onLogout }) {
     setLoading(true);
     try {
       const filter = `&filters[id_lider][$eq]=${currentUser.document}`;
-      const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos,archivo_pdf&sort=createdAt:desc${filter}`);
+      const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos,archivo&sort=createdAt:desc${filter}`);
       const { data } = await res.json();
-      if (data) setReports(mapStrapiToReports(data, allBukUsers));
+      if (data) {
+        let mapped = mapStrapiToReports(data, allBukUsers || []);
+        
+        // RECUPERACIÓN DINÁMICA: Si el empleado no estaba en "allBukUsers", lo buscamos a la API directo para que salga la foto
+        const missingDocs = [...new Set(mapped.filter(r => r.employeeName.startsWith('Empleado')).map(r => r.employeeId))];
+        if (missingDocs.length > 0) {
+          const fetchedUsers = await Promise.all(missingDocs.map(doc => obtenerEmpleadoBuk(doc)));
+          const validUsers = fetchedUsers.filter(Boolean);
+          if (validUsers.length > 0) {
+            const combinedUsers = [...(allBukUsers || []), ...validUsers];
+            mapped = mapStrapiToReports(data, combinedUsers);
+          }
+        }
+        setReports(mapped);
+      }
     } catch (err) { alert("Error cargando servidor."); } finally { setLoading(false); }
   };
 
@@ -213,6 +225,7 @@ export default function LiderView({ currentUser, allBukUsers, onLogout }) {
                         <td><p className="table-bold-text">{t.date}</p></td>
                         <td><p className="table-bold-text">{t.employeeId}</p></td>
                         <td>
+                          {/* CAMBIO TABLA: Mostrando Foto y Nombre en la tabla del líder */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {t.employeeDetails?.foto ? (
                               <img 

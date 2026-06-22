@@ -25,6 +25,7 @@ const DashboardStats = ({ stats }) => {
   );
 };
 
+// COMPONENTE ÚNICO DE TIMELINE (Muestra foto y nombre de quien comenta)
 const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
   <div className="drawer-timeline-item">
     <div className={`drawer-timeline-dot ${isNewest ? 'newest' : ''}`}></div>
@@ -35,8 +36,15 @@ const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
           <h4 className="drawer-timeline-title">Gestión SST</h4>
         </div>
         <div className="drawer-timeline-author-sec">
-          <div className="drawer-timeline-author-info"><p className="drawer-timeline-author-name">ID Admin: {h.author}</p><p className="drawer-timeline-author-role">Gestor</p></div>
-          <div className="drawer-timeline-avatar-placeholder"><UserCircle size={20} /></div>
+          <div className="drawer-timeline-author-info">
+            <p className="drawer-timeline-author-name">{h.authorName || `SST: ${h.author}`}</p>
+            <p className="drawer-timeline-author-role">Gestor</p>
+          </div>
+          {h.authorFoto ? (
+            <img src={h.authorFoto} alt="SST" className="drawer-avatar" style={{width: 35, height: 35, objectFit: 'cover', borderRadius: '50%'}} />
+          ) : (
+            <div className="drawer-timeline-avatar-placeholder"><UserCircle size={20} /></div>
+          )}
           <div className={`drawer-timeline-chevron ${isOpen ? 'rotated' : ''}`}><ChevronRight size={18} /></div>
         </div>
       </button>
@@ -46,7 +54,8 @@ const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
 );
 
 const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
-  const [form, setForm] = useState({ note: '', status: report.status || 'Abierto', action: report.accion || 'Compromiso autocuidado', system: report.sistema_afectado || 'No Aplica', duration: report.temporalidad || 'No Aplica' });
+  // Ajuste de los estados iniciales correctos
+  const [form, setForm] = useState({ note: '', status: report.status || 'Pendiente', action: report.accion || 'Compromiso autocuidado', system: report.sistema_afectado || 'No Aplica', duration: report.temporalidad || 'No Aplica' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(report.history.length > 0 ? { [report.history[0].id]: true } : {});
 
@@ -57,12 +66,18 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
     e.preventDefault();
     if (!form.note.trim()) return;
     setIsSubmitting(true);
+    
+    // Transformar a booleano real según la db
+    let estadoBool = null;
+    if (form.status === 'Abierto') estadoBool = true;
+    if (form.status === 'Cerrado') estadoBool = false;
+
     try {
       const segRes = await fetch(`${STRAPI_BASE_URL}/sst-seguimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { id_admin: String(currentUser.document), descripcion: form.note, sst_reporte: report.strapiId } }) });
       if (!segRes.ok) throw new Error('Error guardando seguimiento');
       const newSegId = (await segRes.json()).data.id;
 
-      const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${report.strapiId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { estado: form.status, accion: form.action, sistema_afectado: form.system, temporalidad: form.duration, sst_seguimientos: [...report.history.map(h => h.id), newSegId] } }) });
+      const repRes = await fetch(`${STRAPI_BASE_URL}/sst-reportes/${report.strapiId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { estado: estadoBool, accion: form.action, sistema_afectado: form.system, temporalidad: form.duration, sst_seguimientos: [...report.history.map(h => h.id), newSegId] } }) });
       if (!repRes.ok) throw new Error('Error actualizando estado');
       onRefresh(); onClose();
     } catch (err) { alert("Error: " + err.message); } finally { setIsSubmitting(false); }
@@ -74,40 +89,7 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
   const ACCIONES = ['Compromiso autocuidado', 'Reincoporacion laboral', 'Acta de seguimiento', 'Autorización de lonchera', 'Cierre de reincorporación', 'Otra'];
   const SISTEMAS = ['No Aplica', 'Genitourinario', 'Dermatológico', 'Cardiovascular', 'Gastrointestinal', 'Respiratorio', 'Inmunologico', 'Alimenticio', 'Neurologico', 'Neoplasias'];
   const TEMPORALIDADES = ['No Aplica', '1 mes', '3 meses'];
-  const ESTADOS = ['Abierto', 'En Seguimiento', 'Cerrado', 'Retirado'];
-  const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
-  <div className="drawer-timeline-item">
-    <div className={`drawer-timeline-dot ${isNewest ? 'newest' : ''}`}></div>
-    <div className={`drawer-timeline-card ${isOpen ? 'open' : ''}`}>
-      <button type="button" onClick={() => toggleOpen(h.id)} className="drawer-timeline-header-btn">
-        <div className="drawer-timeline-info">
-          <div className="drawer-timeline-meta">
-            <span className="drawer-timeline-date">{h.date}</span>
-            {isNewest && <span className="drawer-timeline-badge-new">Último</span>}
-          </div>
-          <h4 className="drawer-timeline-title">Gestión SST</h4>
-        </div>
-        <div className="drawer-timeline-author-sec">
-          <div className="drawer-timeline-author-info">
-            <p className="drawer-timeline-author-name">{h.authorName || `SST: ${h.author}`}</p>
-            <p className="drawer-timeline-author-role">Gestor</p>
-          </div>
-          {h.authorFoto ? (
-            <img src={h.authorFoto} alt="SST" className="drawer-avatar" style={{width: 35, height: 35}} />
-          ) : (
-            <div className="drawer-timeline-avatar-placeholder"><UserCircle size={20} /></div>
-          )}
-          <div className={`drawer-timeline-chevron ${isOpen ? 'rotated' : ''}`}><ChevronRight size={18} /></div>
-        </div>
-      </button>
-      <div className={`drawer-timeline-content-wrapper ${isOpen ? 'expanded' : ''}`}>
-        <div className="drawer-timeline-content">
-          <p>{h.note}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+  const ESTADOS = ['Pendiente', 'Abierto', 'Cerrado']; // Lógica corregida a 3 estados
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -115,104 +97,61 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
         <div className="drawer-left">
           <div className="drawer-left-header">
             <span className="drawer-id-badge">
-              {report.id}
+              Caso #{report.id}
             </span>
           </div>
           <div className="drawer-section">
-            <div className="drawer-timeline">
-              <h3 className="drawer-section-title">Historial de Seguimiento</h3>
-
-              {/* 1. Item Fijo de Apertura del Caso (Datos del Líder) */}
-              <div className="drawer-timeline-item">
-                <div className="drawer-timeline-dot"></div>
-                <div className="drawer-timeline-card open">
-                  <div className="drawer-timeline-header-btn">
-                    <div className="drawer-timeline-info">
-                      <div className="drawer-timeline-meta">
-                        <span className="drawer-timeline-date">{report.date}</span>
-                        <span className="drawer-timeline-badge-new">Apertura</span>
-                      </div>
-                      <h4 className="drawer-timeline-title">Reporte Inicial</h4>
-                    </div>
-                    <div className="drawer-timeline-author-sec">
-                      <div className="drawer-timeline-author-info">
-                        <p className="drawer-timeline-author-name">Líder ID: {report.leaderDocument}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="drawer-timeline-content-wrapper expanded">
-                    <div className="drawer-timeline-content">
-                      <p><strong>Descripción del reporte:</strong> {report.descripcion || 'Sin descripción inicial'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Seguimientos SST */}
-              {report.history.map((h, index) => (
-                <TimelineItem 
-                  key={h.id} 
-                  h={h} 
-                  isNewest={index === 0} 
-                  isOpen={historyOpen[h.id]} 
-                  toggleOpen={toggleHistory} 
-                />
-              ))}
-            </div>
-
-            
 
             <div className="drawer-profile-header">
-              {details.foto ? <img src={details.foto} alt="Perfil" className="drawer-avatar" /> : <div className="drawer-avatar placeholder">{report.employeeName.charAt(0)}</div>}
+              {details.foto ? <img src={details.foto} alt="Perfil" className="drawer-avatar" style={{width: '60px', height:'60px', objectFit:'cover'}} /> : <div className="drawer-avatar placeholder">{report.employeeName.charAt(0)}</div>}
               <div>
-                <h2 className="drawer-profile-name">{details.employeeName}</h2>
+                <h2 className="drawer-profile-name">{report.employeeName}</h2>
                 <p className="drawer-profile-doc">CC: {details.documento}</p>
                 <span className="drawer-profile-tag">Ingreso: {details.ingreso}</span>
               </div>
             </div>
+            
             <div className="drawer-contact-list">
               <div className="drawer-contact-item highlight">
                 <div>
-                  <span>{details.cargo}</span>
-                  <span>{details.area_nombre}</span>
-                  <span>{details.departamento}</span>
-                  <span>{details.direction}</span>
-
-                  <span>{details.Celular}</span>
-                  <span>{details.correo}</span>
-
-                  <span>{details.birthday}</span>
-                  <span>{details.genero || "GENERO"}</span>
+                  <span><strong>Cargo:</strong> {details.cargo}</span>
+                  <span><strong>Área:</strong> {details.area_nombre}</span>
+                  <span><strong>Dpto:</strong> {details.departamento}</span>
+                  <span><strong>Cel:</strong> {details.Celular}</span>
+                  <span><strong>Correo:</strong> {details.correo}</span>
+                  <span><strong>Nacimiento:</strong> {details.birthDate || '--'}</span>
                 </div>
-                <div className="drawer-profile-info">
-                  <h3 className="drawer-profile-name">{report.employeeName}</h3>
-                  <p className="drawer-profile-role">Género: {report.employeeDetails?.genero || 'No especificado'}</p>
-                  <p className="drawer-profile-role">Estado actual del reporte: <strong>{report.estado}</strong></p>
+                {/* Agregando la info extra solicitada del empleado en el modal */}
+                <div className="drawer-profile-info" style={{ marginTop: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
+                  <p className="drawer-profile-role"><strong>Género:</strong> {details.genero}</p>
+                  <p className="drawer-profile-role"><strong>Estado de reporte:</strong> {report.status}</p>
                 </div>
               </div>
             </div>
+
             <div className="drawer-biometrics">
               <div className="drawer-bio-box"><span className="drawer-bio-label">Peso</span><strong className="drawer-bio-val">{details.peso_kg || '--'} <small>kg</small></strong></div>
               <div className="drawer-bio-box"><span className="drawer-bio-label">Talla</span><strong className="drawer-bio-val">{details.talla_m || '--'} <small>m</small></strong></div>
               <div className={`drawer-bio-box bmi-box ${bmi.cssClass}`}><span className="drawer-bio-label">IMC</span><strong className="drawer-bio-val">{bmi.value}</strong><div className="drawer-bmi-indicator"></div></div>
             </div>
+
             <div className="drawer-context-card">
               <div className="drawer-context-row">
-                <span className="drawer-context-label">Categoría: {report.type}</span>
-                <span className="drawer-context-label">Entidad: {report.entityCharge} - {report.entityName}</span>
-                <span className="drawer-context-label">Estado Actual</span><StatusBadge status={report.status} />
-                <span className="drawer-context-label">Descripción Original</span><p>{report.description}</p>
+                <span className="drawer-context-label"><strong>Categoría:</strong> {report.type}</span>
+                <span className="drawer-context-label"><strong>Entidad:</strong> {report.entityCharge} - {report.entityName}</span>
+                <span className="drawer-context-label"><strong>Estado Actual</strong></span><StatusBadge status={report.status} />
               </div>
-              <div className="drawer-context-desc"></div>
+              
+              {/* Botón para abrir el Archivo Adjunto */}
               {report.fileAttachment && report.fileAttachment.url && (
-                <div className="attachment-section" style={{ marginTop: '15px' }}>
+                <div className="attachment-section" style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
                   <a 
-                    href={`${STRAPI_BASE_URL.replace('/api', '')}${report.fileAttachment.url}`} 
+                    href={report.fileAttachment.url}
                     target="_blank" 
                     rel="noreferrer"
-                    className="btn btn-outline"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}
                   >
-                    <FileText size={16} /> Ver Archivo Adjunto
+                    <FileText size={18} /> Ver Documento Adjunto
                   </a>
                 </div>
               )}
@@ -224,26 +163,42 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
           <div className="drawer-body">
             <div className="drawer-content-max">
               <div className="drawer-timeline-container">
+                
                 {report.history.map((h, index) => <TimelineItem key={h.id} h={h} isNewest={index === 0} isOpen={!!historyOpen[h.id]} toggleOpen={toggleHistory} />)}
                 {report.history.length === 0 && <div className="drawer-timeline-item"><div className="drawer-timeline-dot"></div><div className="drawer-timeline-card empty"><p>Aún no hay gestiones registradas para este caso.</p></div></div>}
+                
+                {/* Ítem FIJO DE APERTURA: Muestra qué reportó el líder y los datos del líder */}
                 <div className="drawer-timeline-item">
                   <div className="drawer-timeline-dot initial"></div>
                   <div className="drawer-timeline-card">
-                    <div className="drawer-timeline-header-btn" style={{cursor: 'default', backgroundColor: '#fff'}}>
+                    <div className="drawer-timeline-header-btn" style={{cursor: 'default', backgroundColor: '#eff6ff'}}>
                       <div className="drawer-timeline-info">
                         <div className="drawer-timeline-meta">
                           <span className="drawer-timeline-date">{report.date}</span>
-                          </div>
-                            <h4 className="drawer-timeline-title">Apertura de Caso</h4>
-                            <p className="drawer-sub-title"><Clock size={14}/> Reportado el {report.date} por ID: {report.leaderDocument}</p>
-                          </div>
-                      <div className="drawer-timeline-author-sec"><div className="drawer-timeline-author-info"><p className="drawer-timeline-author-name">ID: {report.leaderDocument}</p><p className="drawer-timeline-author-role">Líder</p></div></div>
+                          <span className="drawer-timeline-badge-new" style={{backgroundColor: '#1e40af'}}>Apertura</span>
+                        </div>
+                        <h4 className="drawer-timeline-title">Reporte Inicial</h4>
+                        <p className="drawer-sub-title" style={{marginTop: '10px', color: '#1e293b'}}><strong>Descripción original:</strong> {report.description}</p>
+                      </div>
+                      <div className="drawer-timeline-author-sec">
+                        <div className="drawer-timeline-author-info">
+                          <p className="drawer-timeline-author-name">{report.leaderName}</p>
+                          <p className="drawer-timeline-author-role">Líder ID: {report.leaderDocument}</p>
+                        </div>
+                        {report.leaderFoto ? (
+                          <img src={report.leaderFoto} alt="Líder" className="drawer-avatar" style={{width: 35, height: 35, objectFit: 'cover', borderRadius: '50%'}} />
+                        ) : (
+                          <div className="drawer-timeline-avatar-placeholder"><UserCircle size={20} /></div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
+          
           <div className="drawer-footer">
             <div className="drawer-content-max">
               <form onSubmit={handleSubmit} className="drawer-form">
@@ -275,9 +230,25 @@ export default function SSTView({ currentUser, allBukUsers, onLogout }) {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos,archivo_pdf&sort=createdAt:desc`);
+      // Usamos archivo en vez de archivo_pdf
+      const res = await fetch(`${STRAPI_BASE_URL}/sst-reportes?populate=sst_seguimientos,archivo&sort=createdAt:desc`);
       const { data } = await res.json();
-      if (data) setReports(mapStrapiToReports(data, allBukUsers));
+      if (data) {
+        let mapped = mapStrapiToReports(data, allBukUsers || []);
+        
+        // RECUPERACIÓN DINÁMICA: Si un empleado reportado no venía precargado en allBukUsers (Foto y nombre no se veían), aquí forzamos la carga.
+        const missingDocs = [...new Set(mapped.filter(r => r.employeeName.startsWith('Empleado')).map(r => r.employeeId))];
+        if (missingDocs.length > 0) {
+          const fetchedUsers = await Promise.all(missingDocs.map(doc => obtenerEmpleadoBuk(doc)));
+          const validUsers = fetchedUsers.filter(Boolean);
+          if (validUsers.length > 0) {
+            const combinedUsers = [...(allBukUsers || []), ...validUsers];
+            mapped = mapStrapiToReports(data, combinedUsers);
+          }
+        }
+        
+        setReports(mapped);
+      }
     } catch (err) { alert("Error cargando servidor."); } finally { setLoading(false); }
   };
 
@@ -293,7 +264,12 @@ export default function SSTView({ currentUser, allBukUsers, onLogout }) {
   };
 
   const filtered = reports.filter(t => [t.type, t.id, t.employeeName].some(v => v?.toLowerCase().includes(search.toLowerCase())));
-  const stats = { total: reports.length, open: reports.filter(t => t.status === 'Abierto').length, inProgress: reports.filter(t => t.status === 'En Seguimiento').length, closed: reports.filter(t => t.status === 'Cerrado').length };
+  const stats = { 
+    total: reports.length, 
+    open: reports.filter(t => t.statusBoolean === true).length, 
+    inProgress: reports.filter(t => t.statusBoolean === null).length, 
+    closed: reports.filter(t => t.statusBoolean === false).length 
+  };
 
   return (
     <div className="app-layout">
@@ -334,6 +310,7 @@ export default function SSTView({ currentUser, allBukUsers, onLogout }) {
                         <td><p className="table-bold-text">{t.date}</p></td>
                         <td><p className="table-bold-text">{t.employeeId}</p></td>
                         <td>
+                          {/* CAMBIO TABLA: Ahora siempre muestra foto y nombre con la validación del fetch dinámico */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {t.employeeDetails?.foto ? (
                               <img 

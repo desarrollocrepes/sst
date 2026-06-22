@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import LiderView from './pages/LiderView';
 import SSTView from './pages/SSTView';
-import './App.css';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
