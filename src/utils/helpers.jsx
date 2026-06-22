@@ -58,8 +58,14 @@ export const obtenerEmpleadoBuk = async (documento) => {
   }
 };
 
-export const mapStrapiToReports = (data, allBukUsers) => {
-  return data.map(item => {
+export const mapearEstado = (estado) => {
+  if (estado === true) return 'Abierto';
+  if (estado === false) return 'Cerrado';
+  return 'Pendiente'; // Para null
+};
+
+export const mapStrapiToReports = (StrapiData, allBukUsers) => {
+  return StrapiData.map(item => {
     const att = item.attributes;
     const buk = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(att.id_empleado)) || {});
     const pdf = Array.isArray(att.archivo_pdf?.data) ? att.archivo_pdf.data[0] : (att.archivo_pdf?.data || att.archivo_pdf);
@@ -84,6 +90,7 @@ export const mapStrapiToReports = (data, allBukUsers) => {
         age: calculateAgeFromBirthDate(att.fecha_nacimiento),
         genero: att.genero || buk.genero || '-'
       },
+      estado: mapearEstado(att.estado),
       entityCharge: att.entidad_cargo || '-',
       entityName: att.nombre_entidad || '-',
       fileAttachment: pdf ? { id: pdf.id, name: pdf.attributes?.name || pdf.name, url: pdf.attributes?.url || null } : null,

@@ -75,6 +75,39 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
   const SISTEMAS = ['No Aplica', 'Genitourinario', 'Dermatológico', 'Cardiovascular', 'Gastrointestinal', 'Respiratorio', 'Inmunologico', 'Alimenticio', 'Neurologico', 'Neoplasias'];
   const TEMPORALIDADES = ['No Aplica', '1 mes', '3 meses'];
   const ESTADOS = ['Abierto', 'En Seguimiento', 'Cerrado', 'Retirado'];
+  const TimelineItem = ({ h, isNewest, isOpen, toggleOpen }) => (
+  <div className="drawer-timeline-item">
+    <div className={`drawer-timeline-dot ${isNewest ? 'newest' : ''}`}></div>
+    <div className={`drawer-timeline-card ${isOpen ? 'open' : ''}`}>
+      <button type="button" onClick={() => toggleOpen(h.id)} className="drawer-timeline-header-btn">
+        <div className="drawer-timeline-info">
+          <div className="drawer-timeline-meta">
+            <span className="drawer-timeline-date">{h.date}</span>
+            {isNewest && <span className="drawer-timeline-badge-new">Último</span>}
+          </div>
+          <h4 className="drawer-timeline-title">Gestión SST</h4>
+        </div>
+        <div className="drawer-timeline-author-sec">
+          <div className="drawer-timeline-author-info">
+            <p className="drawer-timeline-author-name">{h.authorName || `SST: ${h.author}`}</p>
+            <p className="drawer-timeline-author-role">Gestor</p>
+          </div>
+          {h.authorFoto ? (
+            <img src={h.authorFoto} alt="SST" className="drawer-avatar" style={{width: 35, height: 35}} />
+          ) : (
+            <div className="drawer-timeline-avatar-placeholder"><UserCircle size={20} /></div>
+          )}
+          <div className={`drawer-timeline-chevron ${isOpen ? 'rotated' : ''}`}><ChevronRight size={18} /></div>
+        </div>
+      </button>
+      <div className={`drawer-timeline-content-wrapper ${isOpen ? 'expanded' : ''}`}>
+        <div className="drawer-timeline-content">
+          <p>{h.note}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -86,6 +119,49 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
             </span>
           </div>
           <div className="drawer-section">
+            <div className="drawer-timeline">
+              <h3 className="drawer-section-title">Historial de Seguimiento</h3>
+
+              {/* 1. Item Fijo de Apertura del Caso (Datos del Líder) */}
+              <div className="drawer-timeline-item">
+                <div className="drawer-timeline-dot"></div>
+                <div className="drawer-timeline-card open">
+                  <div className="drawer-timeline-header-btn">
+                    <div className="drawer-timeline-info">
+                      <div className="drawer-timeline-meta">
+                        <span className="drawer-timeline-date">{report.date}</span>
+                        <span className="drawer-timeline-badge-new">Apertura</span>
+                      </div>
+                      <h4 className="drawer-timeline-title">Reporte Inicial</h4>
+                    </div>
+                    <div className="drawer-timeline-author-sec">
+                      <div className="drawer-timeline-author-info">
+                        <p className="drawer-timeline-author-name">Líder ID: {report.leaderDocument}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="drawer-timeline-content-wrapper expanded">
+                    <div className="drawer-timeline-content">
+                      <p><strong>Descripción del reporte:</strong> {report.descripcion || 'Sin descripción inicial'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Seguimientos SST */}
+              {report.history.map((h, index) => (
+                <TimelineItem 
+                  key={h.id} 
+                  h={h} 
+                  isNewest={index === 0} 
+                  isOpen={historyOpen[h.id]} 
+                  toggleOpen={toggleHistory} 
+                />
+              ))}
+            </div>
+
+            
+
             <div className="drawer-profile-header">
               {details.foto ? <img src={details.foto} alt="Perfil" className="drawer-avatar" /> : <div className="drawer-avatar placeholder">{report.employeeName.charAt(0)}</div>}
               <div>
@@ -108,6 +184,11 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
                   <span>{details.birthday}</span>
                   <span>{details.genero || "GENERO"}</span>
                 </div>
+                <div className="drawer-profile-info">
+                  <h3 className="drawer-profile-name">{report.employeeName}</h3>
+                  <p className="drawer-profile-role">Género: {report.employeeDetails?.genero || 'No especificado'}</p>
+                  <p className="drawer-profile-role">Estado actual del reporte: <strong>{report.estado}</strong></p>
+                </div>
               </div>
             </div>
             <div className="drawer-biometrics">
@@ -123,9 +204,16 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
                 <span className="drawer-context-label">Descripción Original</span><p>{report.description}</p>
               </div>
               <div className="drawer-context-desc"></div>
-              {report.fileAttachment?.url && (
-                <div className="drawer-context-row">
-                  <a href={report.fileAttachment.url.startsWith('http') ? report.fileAttachment.url : `${STRAPI_BASE_URL.replace('/api', '')}${report.fileAttachment.url}`} target="_blank" rel="noreferrer" className="btn btn-outline-primary btn-sm block-btn">Ver Archivo Adjunto</a>
+              {report.fileAttachment && report.fileAttachment.url && (
+                <div className="attachment-section" style={{ marginTop: '15px' }}>
+                  <a 
+                    href={`${STRAPI_BASE_URL.replace('/api', '')}${report.fileAttachment.url}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="btn btn-outline"
+                  >
+                    <FileText size={16} /> Ver Archivo Adjunto
+                  </a>
                 </div>
               )}
             </div>
@@ -242,8 +330,24 @@ export default function SSTView({ currentUser, allBukUsers, onLogout }) {
                   <tbody>
                     {filtered.map(t => (
                       <tr key={t.id}>
-                        <td><p className="table-bold-text">{t.id}</p></td><td><p className="table-bold-text">{t.date}</p></td><td><p className="table-bold-text">{t.employeeId}</p></td>
-                        <td><p className="table-bold-text">{t.employeeName}</p></td><td><p className="table-bold-text">{t.type}</p></td>
+                        <td><p className="table-bold-text">{t.id}</p></td>
+                        <td><p className="table-bold-text">{t.date}</p></td>
+                        <td><p className="table-bold-text">{t.employeeId}</p></td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {t.employeeDetails?.foto ? (
+                              <img 
+                                src={t.employeeDetails.foto} 
+                                alt={t.employeeName} 
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} 
+                              />
+                            ) : (
+                              <UserCircle size={32} color="#94a3b8" />
+                            )}
+                            <span className="table-bold-text">{t.employeeName}</span>
+                          </div>
+                        </td>
+                        <td><p className="table-bold-text">{t.type}</p></td>
                         <td><p className="table-text-truncate">{t.description}</p></td>
                         <td><StatusBadge status={t.status} /></td>
                         <td><button onClick={() => handleOpenCase(t)} className="btn btn-outline-primary btn-sm">Gestionar <ChevronRight size={16} /></button></td>

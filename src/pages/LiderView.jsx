@@ -50,8 +50,8 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
           peso_kg: form.peso ? parseFloat(form.peso) : null,
           talla_m: form.talla ? parseFloat(form.talla) : null,
           descripcion: form.description,
-          estado: 'Abierto',
-          archivo_pdf: archivoId || null
+          estado: null, // null para que quede en "Pendiente" según tu nueva lógica
+          archivo: archivoId || null // CAMBIO: de archivo_pdf a archivo
         }
       };
 
@@ -67,12 +67,14 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
   const CATEGORIAS = ['Incidente', 'Accidente Leve', 'Accidente Grave', 'Condición Insegura', 'Enfermedad Laboral', 'Reincorporación post incapacidad', 'Recomendaciones medicas', 'Recomendaciones nutricionales', 'Incapacidades recurrentes'];
   const ENTIDADES = ['EPS', 'ARL', 'Medicina prepagada'];
 
+
+
   return (
-    <div className="modal-overlay">
-      <div className="modal-window wide-modal">
-        <div className="modal-header"><button onClick={onClose} className="btn btn-dark">Cerrar</button></div>
-        <div className="modal-body">
-          <form onSubmit={handleSubmit} className="form-card">
+    <div className="drawer-overlay" onClick={onClose}>
+      <div className="drawer-panel drawer-panel-single" onClick={e => e.stopPropagation()}>        
+        <div className="drawer-body">
+          
+            <form onSubmit={handleSubmit} className="form-card">
             <div className="form-section">
               <div className="form-group">
                 <label>Seleccionar colaborador</label>
@@ -123,21 +125,29 @@ const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
                 <label>Descripción</label>
                 <textarea required rows="4" value={form.description} onChange={(e) => updateForm('description', e.target.value)} className="form-control" placeholder="Explique qué pasó..."></textarea>
               </div>
-              <div className="form-group">
-                <label>Adjuntos (PDF)</label>
-                <input type="file" accept="application/pdf" onChange={(e) => setSupportFile(e.target.files?.[0] || null)} className="form-control" />
-              </div>
             </div>
-            <div className="form-actions">
-              <button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
-              <button disabled={isSubmitting || !selectedEmpId} type="submit" className="btn btn-primary">{isSubmitting ? 'Guardando...' : 'Enviar Reporte'}</button>
+          
+            
+            <div className="form-group">
+              <label>Archivo Adjunto (PDF o Imagen)</label>
+              <input 
+                type="file" 
+                className="form-control" 
+                onChange={(e) => setSupportFile(e.target.files[0])}
+                accept=".pdf,image/*" 
+              />
             </div>
+            
+            <button type="submit" className="btn btn-primary block-btn" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : 'Crear Reporte'}
+            </button>
           </form>
         </div>
       </div>
     </div>
   );
 };
+
 
 export default function LiderView({ currentUser, allBukUsers, onLogout }) {
   const [reports, setReports] = useState([]);
@@ -187,13 +197,36 @@ export default function LiderView({ currentUser, allBukUsers, onLogout }) {
               <div className="table-responsive">
                 <table className="data-table">
                   <thead>
-                    <tr><th>ID</th><th>Fecha</th><th>Cédula</th><th>Colaborador</th><th>Tipo</th><th>Estado</th></tr>
+                    <tr>
+                      <th>ID</th>
+                      <th>Fecha</th>
+                      <th>Cédula</th>
+                      <th>Colaborador</th>
+                      <th>Tipo</th>
+                      <th>Estado</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {filtered.map(t => (
                       <tr key={t.id}>
-                        <td><p className="table-bold-text">{t.id}</p></td><td><p className="table-bold-text">{t.date}</p></td><td><p className="table-bold-text">{t.employeeId}</p></td>
-                        <td><p className="table-bold-text">{t.employeeName}</p></td><td><p className="table-bold-text">{t.type}</p></td>
+                        <td><p className="table-bold-text">{t.id}</p></td>
+                        <td><p className="table-bold-text">{t.date}</p></td>
+                        <td><p className="table-bold-text">{t.employeeId}</p></td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {t.employeeDetails?.foto ? (
+                              <img 
+                                src={t.employeeDetails.foto} 
+                                alt={t.employeeName} 
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} 
+                              />
+                            ) : (
+                              <UserCircle size={32} color="#94a3b8" />
+                            )}
+                            <span className="table-bold-text">{t.employeeName}</span>
+                          </div>
+                        </td>
+                        <td><p className="table-bold-text">{t.type}</p></td>
                         <td><StatusBadge status={t.status} /></td>
                       </tr>
                     ))}
