@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, User, CheckCircle2, Clock, AlertCircle, ShieldAlert, LogOut, FileText, Briefcase, MapPin, Phone, Mail, RefreshCw, ChevronRight, UserCircle } from 'lucide-react';
+import { Ticket, Search, User, CheckCircle2, Clock, AlertCircle, ShieldAlert, LogOut, FileText, Briefcase, MapPin, Phone, Mail, RefreshCw, ChevronRight, UserCircle, Hash } from 'lucide-react';
 import { STRAPI_BASE_URL, mapStrapiToReports, obtenerEmpleadoBuk, calculateBMI, StatusBadge } from '../utils/helpers';
+import './SSTView.css';
 
 const DashboardStats = ({ stats }) => {
   const cards = [
@@ -79,34 +80,51 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
     <div className="drawer-overlay" onClick={onClose}>
       <div className="drawer-panel" onClick={e => e.stopPropagation()}>
         <div className="drawer-left">
-          <div className="drawer-left-header"><button onClick={onClose} className="drawer-close-btn"><LogOut size={20} /></button><span className="drawer-id-badge"><ShieldAlert size={14} /> ID: #{report.id}</span><p className="drawer-sub-title"><Clock size={14}/> Reportado el {report.date} por ID: {report.leaderDocument}</p></div>
+          <div className="drawer-left-header">
+            <span className="drawer-id-badge">
+              {report.id}
+            </span>
+          </div>
           <div className="drawer-section">
             <div className="drawer-profile-header">
               {details.foto ? <img src={details.foto} alt="Perfil" className="drawer-avatar" /> : <div className="drawer-avatar placeholder">{report.employeeName.charAt(0)}</div>}
-              <div><h2 className="drawer-profile-name">{details.employeeName}</h2><p className="drawer-profile-doc">CC: {details.documento}</p><span className="drawer-profile-tag">Ingreso: {details.ingreso}</span></div>
+              <div>
+                <h2 className="drawer-profile-name">{details.employeeName}</h2>
+                <p className="drawer-profile-doc">CC: {details.documento}</p>
+                <span className="drawer-profile-tag">Ingreso: {details.ingreso}</span>
+              </div>
             </div>
             <div className="drawer-contact-list">
-              <div className="drawer-contact-item highlight"><Briefcase size={16} /><div><strong>{details.cargo}</strong><span>{details.direction}</span></div></div>
-              <div className="drawer-contact-item"><MapPin size={16} /> <span>{details.area_nombre} - {details.departamento}</span></div>
-              <div className="drawer-contact-item"><Phone size={16} /> <span>{details.Celular}</span></div>
-              <div className="drawer-contact-item"><Mail size={16} /> <span>{details.correo}</span></div>
-              <div className="drawer-contact-item"><UserCircle size={16} /> <span>{details.age != null ? `${details.age} años` : 'N/R'} - {details.genero || 'N/R'}</span></div>
+              <div className="drawer-contact-item highlight">
+                <div>
+                  <span>{details.cargo}</span>
+                  <span>{details.area_nombre}</span>
+                  <span>{details.departamento}</span>
+                  <span>{details.direction}</span>
+
+                  <span>{details.Celular}</span>
+                  <span>{details.correo}</span>
+
+                  <span>{details.birthday}</span>
+                  <span>{details.genero || "GENERO"}</span>
+                </div>
+              </div>
             </div>
             <div className="drawer-biometrics">
               <div className="drawer-bio-box"><span className="drawer-bio-label">Peso</span><strong className="drawer-bio-val">{details.peso_kg || '--'} <small>kg</small></strong></div>
               <div className="drawer-bio-box"><span className="drawer-bio-label">Talla</span><strong className="drawer-bio-val">{details.talla_m || '--'} <small>m</small></strong></div>
               <div className={`drawer-bio-box bmi-box ${bmi.cssClass}`}><span className="drawer-bio-label">IMC</span><strong className="drawer-bio-val">{bmi.value}</strong><div className="drawer-bmi-indicator"></div></div>
             </div>
-          </div>
-          <div className="drawer-section drawer-context-section">
-            <h3 className="drawer-section-title"><FileText size={16} /> Contexto del Caso</h3>
             <div className="drawer-context-card">
-              <div className="drawer-context-row"><span className="drawer-context-label">Categoría</span><strong className="drawer-context-val">{report.type}</strong></div>
-              <div className="drawer-context-row"><span className="drawer-context-label">Entidad</span><span className="drawer-context-val">{report.entityCharge} - {report.entityName}</span></div>
-              <div className="drawer-context-row"><span className="drawer-context-label">Estado Actual</span><StatusBadge status={report.status} /></div>
-              <div className="drawer-context-desc"><span className="drawer-context-label">Descripción Original</span><p>"{report.description}"</p></div>
+              <div className="drawer-context-row">
+                <span className="drawer-context-label">Categoría: {report.type}</span>
+                <span className="drawer-context-label">Entidad: {report.entityCharge} - {report.entityName}</span>
+                <span className="drawer-context-label">Estado Actual</span><StatusBadge status={report.status} />
+                <span className="drawer-context-label">Descripción Original</span><p>{report.description}</p>
+              </div>
+              <div className="drawer-context-desc"></div>
               {report.fileAttachment?.url && (
-                <div className="drawer-context-row" style={{marginTop: '10px'}}>
+                <div className="drawer-context-row">
                   <a href={report.fileAttachment.url.startsWith('http') ? report.fileAttachment.url : `${STRAPI_BASE_URL.replace('/api', '')}${report.fileAttachment.url}`} target="_blank" rel="noreferrer" className="btn btn-outline-primary btn-sm block-btn">Ver Archivo Adjunto</a>
                 </div>
               )}
@@ -117,7 +135,6 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
         <div className="drawer-right">
           <div className="drawer-body">
             <div className="drawer-content-max">
-              <h3 className="drawer-section-title"><Clock size={16} /> Historial de Seguimiento</h3>
               <div className="drawer-timeline-container">
                 {report.history.map((h, index) => <TimelineItem key={h.id} h={h} isNewest={index === 0} isOpen={!!historyOpen[h.id]} toggleOpen={toggleHistory} />)}
                 {report.history.length === 0 && <div className="drawer-timeline-item"><div className="drawer-timeline-dot"></div><div className="drawer-timeline-card empty"><p>Aún no hay gestiones registradas para este caso.</p></div></div>}
@@ -125,7 +142,13 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
                   <div className="drawer-timeline-dot initial"></div>
                   <div className="drawer-timeline-card">
                     <div className="drawer-timeline-header-btn" style={{cursor: 'default', backgroundColor: '#fff'}}>
-                      <div className="drawer-timeline-info"><div className="drawer-timeline-meta"><span className="drawer-timeline-date">{report.date}</span></div><h4 className="drawer-timeline-title">Apertura de Caso</h4></div>
+                      <div className="drawer-timeline-info">
+                        <div className="drawer-timeline-meta">
+                          <span className="drawer-timeline-date">{report.date}</span>
+                          </div>
+                            <h4 className="drawer-timeline-title">Apertura de Caso</h4>
+                            <p className="drawer-sub-title"><Clock size={14}/> Reportado el {report.date} por ID: {report.leaderDocument}</p>
+                          </div>
                       <div className="drawer-timeline-author-sec"><div className="drawer-timeline-author-info"><p className="drawer-timeline-author-name">ID: {report.leaderDocument}</p><p className="drawer-timeline-author-role">Líder</p></div></div>
                     </div>
                   </div>
@@ -135,7 +158,6 @@ const CaseManagementModal = ({ report, currentUser, onClose, onRefresh }) => {
           </div>
           <div className="drawer-footer">
             <div className="drawer-content-max">
-              <div className="drawer-footer-title"><h3>Registrar Nueva Gestión</h3></div>
               <form onSubmit={handleSubmit} className="drawer-form">
                 <div className="drawer-form-grid">
                   <div className="form-group-compact"><label>Acción</label><select value={form.action} onChange={e => updateForm('action', e.target.value)}>{ACCIONES.map(a => <option key={a} value={a}>{a}</option>)}</select></div>

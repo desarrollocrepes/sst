@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, User, RefreshCw, LogOut, FileText } from 'lucide-react';
 import { STRAPI_BASE_URL, normalizeBukUser, obtenerEmpleadoBuk, mapStrapiToReports, StatusBadge } from '../utils/helpers';
 
-// Sub-componente Modal del Líder
 const NewReportModal = ({ currentUser, onClose, onRefresh }) => {
   const [selectedEmpId, setSelectedEmpId] = useState('');
   const [empDetails, setEmpDetails] = useState(null);
