@@ -91,7 +91,7 @@ export const mapStrapiToReports = (StrapiData, allBukUsers) => {
         talla_m: att.talla_m,
         birthDate: att.fecha_nacimiento,
         age: calculateAgeFromBirthDate(att.fecha_nacimiento),
-        genero: att.genero || buk.genero || '-'
+        genero: att.genero || buk.genero || 'No especificado' // <-- Forzando traer de att.genero (Strapi)
       },
       status: mapearEstado(att.estado),
       statusBoolean: att.estado,
@@ -108,17 +108,16 @@ export const mapStrapiToReports = (StrapiData, allBukUsers) => {
       sistema_afectado: att.sistema_afectado, 
       temporalidad: att.temporalidad,
       history: (att.sst_seguimientos?.data || []).map(seg => {
-        const idGestor = seg.attributes.id_admin || seg.attributes.id_sst;
-        const sstAdmin = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(idGestor)) || {});
+        const authorId = seg.attributes.id_sst || seg.attributes.id_admin || null;
+        const sstAdmin = normalizeBukUser(allBukUsers.find(u => String(u.document_number) === String(authorId)) || {});
         return { 
           id: seg.id,
           date: formatDate(seg.attributes.createdAt),
           rawDate: seg.attributes.createdAt,
           note: seg.attributes.descripcion,
-          author: idGestor,
-          authorName: sstAdmin.nombre || `Gestor ID: ${idGestor}`,
+          author: authorId,
+          authorName: sstAdmin.nombre || (authorId ? `Gestor ID: ${authorId}` : 'SST desconocido'),
           authorFoto: sstAdmin.foto || null,
-          // NUEVOS CAMPOS RECUPERADOS DE LA API (con fallback por si las mayúsculas en Strapi varían)
           accion: seg.attributes.accion || seg.attributes.Accion || seg.attributes.Acción || 'No Aplica',
           sistema: seg.attributes.sistema || seg.attributes.sistema_afectado || seg.attributes.Sistema || 'No Aplica',
           temporalidad: seg.attributes.temporalidad || seg.attributes.Temporalidad || 'No Aplica'

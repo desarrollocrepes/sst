@@ -1,59 +1,80 @@
 import React, { useState } from 'react';
-import { Loader2, IdCard, ShieldAlert, IdCardLanyard } from 'lucide-react';
+import { Loader2, IdCardLanyard } from 'lucide-react';
 import { obtenerEmpleadoBuk, normalizeBukUser } from '../utils/helpers';
 import './Login.css';
 
+// Funciones auxiliares para delegar la lógica de negocio
+const determineUserRole = (user) => {
+  const isSST = user.departamento === 'Seguridad y Salud en el Trabajo' && user.direction === 'Dirección Desarrollo Humano';
+  const isLeader = String(user.lider) === '1' || user.lider === true;
+
+  if (isSST) return 'SST';
+  if (isLeader) return 'LIDER';
+  return null;
+};
+
+const getActiveTeam = (equipo) => {
+  if (!Array.isArray(equipo)) return [];
+  return equipo.filter(member => String(member.status).toLowerCase() === 'activo');
+};
+
 export default function Login({ onLogin }) {
-  const [doc, setDoc] = useState('');
-  const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [documentNumber, setDocumentNumber] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!doc) return;
+    if (!documentNumber.trim()) return;
     
-    setLoading(true); 
-    setErr('');
+    setIsLoading(true); 
+    setError('');
     
     try {
-      const u = await obtenerEmpleadoBuk(doc);
-      if (!u || u.status !== 'activo') throw new Error(u ? 'Usuario inactivo' : 'Documento no encontrado');
-
-      let role = '', equipo = [];
+      const user = await obtenerEmpleadoBuk(documentNumber);
       
-      if (u.departamento === 'Seguridad y Salud en el Trabajo' && u.direction === 'Dirección Desarrollo Humano') {
-        role = 'SST';
-      } else if (u.lider === 1 || u.lider === '1' || u.lider === true) {
-        role = 'LIDER';
-        equipo = Array.isArray(u.equipo) ? u.equipo.filter(e => String(e.status).toLowerCase() === 'activo') : [];
-      } else {
+      // Validaciones iniciales
+      if (!user) throw new Error('Documento no encontrado');
+      if (user.status !== 'activo') throw new Error('Usuario inactivo');
+
+      // Asignación de rol
+      const role = determineUserRole(user);
+      if (!role) {
         throw new Error('No tienes permisos para ingresar');
       }
 
-      const nLeader = normalizeBukUser(u);
-      const nTeam = equipo.map(normalizeBukUser);
+      // Obtención de equipo activo (Solo si es líder)
+      const activeTeam = role === 'LIDER' ? getActiveTeam(user.equipo) : [];
+
+      // Normalización de datos
+      const normalizedLeader = normalizeBukUser(user);
+      const normalizedTeam = activeTeam.map(normalizeBukUser);
       
-      onLogin(
-        { 
-          document: nLeader.document_number, 
-          name: nLeader.nombre, 
-          role, 
-          area: nLeader.area_nombre, 
-          equipo: nTeam, 
-          cargo: nLeader.cargo, 
-          foto: nLeader.foto 
-        }, 
-        [nLeader, ...nTeam]
-      );
-    } catch (e) {
-      setErr(e.message);
+      const loginData = { 
+        document: normalizedLeader.document_number, 
+        name: normalizedLeader.nombre, 
+        role, 
+        area: normalizedLeader.area_nombre, 
+        equipo: normalizedTeam, 
+        cargo: normalizedLeader.cargo, 
+        foto: normalizedLeader.foto 
+      };
+
+      const allUsers = [normalizedLeader, ...normalizedTeam];
+
+      // Ejecutar callback
+      onLogin(loginData, allUsers);
+
+    } catch (err) {
+      setError(err.message || 'Ocurrió un error inesperado');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleDocChange = (e) => {
-    setDoc(e.target.value.replace(/\D/g, ''));
+  const handleDocumentChange = (e) => {
+    // Reemplaza cualquier carácter que no sea un dígito
+    setDocumentNumber(e.target.value.replace(/\D/g, ''));
   };
 
   return (
@@ -72,29 +93,31 @@ export default function Login({ onLogin }) {
               <input
                 id="documento"
                 type="text"
-                value={doc}
+                value={documentNumber}
                 placeholder="No. de documento"
                 required
-                onChange={handleDocChange}
+                onChange={handleDocumentChange}
                 className="form-input"
-                disabled={loading}
+                disabled={isLoading}
+                aria-invalid={!!error}
               />
             </div>
           </div>
 
-          {err && (
+          {error && (
             <div className="alert alert-danger" role="alert">
-              <span>{err}</span>
+              <span>{error}</span>
             </div>
           )}
 
           <button 
             type="submit" 
             className="btn btn-primary btn-w-full login-submit-btn" 
-            disabled={loading || !doc}
+            disabled={isLoading || !documentNumber}
+            /* Nota: Sería ideal mover estos estilos en línea a tu archivo Login.css */
             style={{ backgroundColor: '#503629', color: '#fff', border: 'none' }}
           >
-            {loading ? <Loader2 className="spin" size={18} /> : 'Ingresar'}
+            {isLoading ? <Loader2 className="spin" size={18} /> : 'Ingresar'}
           </button>
         </form>
       </div>
