@@ -1,0 +1,5 @@
+.lider-header { margin-bottom: 24px; }
+.lider-header h2 { font-size: 24px; font-weight: 700; color: var(--text); }
+.lider-header p { color: var(--muted); margin-top: 4px; }
+.report-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 20px; }
+.full-width { grid-column: 1 / -1; }

@@ -1,0 +1,39 @@
+.alert-banner { background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; cursor: pointer; transition: all 0.2s; }
+.alert-banner:hover { background: rgba(239, 68, 68, 0.1); }
+.alert-text strong { font-size: 16px; color: var(--red); display: block; }
+.alert-text p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow); border-top: 4px solid var(--border); }
+.kpi.abierto { border-top-color: var(--accent); }
+.kpi.cerrado { border-top-color: var(--green); }
+.kpi.alerta { border-top-color: var(--red); }
+.kpi:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+.kpi.active-filter { box-shadow: 0 0 0 3px rgba(80, 54, 41, 0.2); }
+.kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
+.kpi-value { font-size: 36px; font-weight: 700; line-height: 1; color: var(--text); }
+
+.charts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+.chart-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+.chart-wrap { position: relative; height: 220px; }
+
+.cases-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); }
+.cases-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.search-box { width: 300px; }
+
+/* Paneles Interiores Modal SST */
+.slide-panel-left { width: 30%; background: var(--bg); border-right: 1px solid var(--border); padding: 32px 24px; overflow-y: auto; display: flex; flex-direction: column; }
+.profile-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin: 0 auto 16px; border: 4px solid var(--surface); box-shadow: var(--shadow); }
+.profile-name { text-align: center; font-size: 18px; font-weight: 700; color: var(--accent); }
+.profile-role { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; background: var(--surface); padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+.info-item { display: flex; flex-direction: column; gap: 4px; }
+.info-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.info-value { font-size: 13px; font-weight: 500; color: var(--text); word-break: break-word; }
+.info-item.full { grid-column: 1 / -1; }
+
+.slide-panel-right { width: 70%; display: flex; flex-direction: column; height: 100%; position: relative; background: var(--surface); }
+.slide-panel-history { flex: 1; padding: 32px; overflow-y: auto; }
+.section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.5px; }
+.slide-panel-form { border-top: 1px solid var(--border); padding: 24px 32px; background: var(--bg); }
