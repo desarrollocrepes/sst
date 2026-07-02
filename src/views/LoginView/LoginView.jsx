@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './LoginView.css';
 import { fetchEmployeeData } from '../../utils/apiHelpers';
 
 const LoginView = ({ onLoginSuccess, showToast, setLoading }) => {
   const [doc, setDoc] = useState('');
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!doc.trim()) return showToast('Ingrese un documento válido', 'error');
     setLoading(true);
     try {
@@ -23,7 +24,7 @@ const LoginView = ({ onLoginSuccess, showToast, setLoading }) => {
       } else {
         showToast('No tiene permisos para acceder a esta plataforma', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Error de conexión con el servidor', 'error');
     } finally {
       setLoading(false);
@@ -35,21 +36,27 @@ const LoginView = ({ onLoginSuccess, showToast, setLoading }) => {
       <div className="login-wrapper">
         <div className="card login-card">
           <h1 className="login-title">Plataforma Seguridad y Salud en el Trabajo</h1>
-          <p className="login-sub">Ingrese su número de documento para acceder</p>
-          <div className="form-group" style={{ textAlign: 'left' }}>
-            <label className="form-label">Documento de Identidad</label>
-            <input
-              type="number"
-              className="form-control"
-              placeholder="Ej: 10203040"
-              value={doc}
-              onChange={(e) => setDoc(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-            />
-          </div>
-          <button className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} onClick={handleLogin}>
-            Ingresar al Sistema
-          </button>
+          <form onSubmit={handleLogin}>
+            <p id="login-hint" className="login-sub">Ingrese su número de documento para acceder</p>
+            <div className="form-group" style={{ textAlign: 'left' }}>
+              <label htmlFor="doc-input" className="form-label">Documento de Identidad</label>
+              <input
+                id="doc-input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="username"
+                aria-describedby="login-hint"
+                className="form-control"
+                placeholder="Ej: 10203040"
+                value={doc}
+                onChange={(e) => setDoc(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }}>
+              Ingresar al Sistema
+            </button>
+          </form>
         </div>
       </div>
     </div>
