@@ -133,35 +133,31 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
 
   return (
     <div className="view-container active container">
-      <div 
-        className="alert-banner" 
-        style={{ cursor: 'pointer', border: '1px solid var(--accent)' }} 
-        onClick={() => setIsModalOpen(true)}
-      >
+      <div className="lider-alert-banner" onClick={() => setIsModalOpen(true)}>
         <ClipboardPlus size={26} color="var(--accent)" />
         <div className="alert-text">
-          <strong style={{ fontSize: '16px', color: 'var(--accent)' }}>Haz clic aquí para registrar una novedad de salud de algún miembro de tu equipo</strong>
+          <strong className="lider-alert-title">Haz clic aquí para registrar una novedad de salud de algún miembro de tu equipo</strong>
         </div>
       </div>
 
       {isModalOpen && (
         <div className="modal-overlay" onClick={(e) => e.target.className === 'modal-overlay' && setIsModalOpen(false)}>
-          <div className="slide-over-modal" style={{ overflowY: 'auto', display: 'block', padding: '30px' }}>
+          <div className="slide-over-modal lider-modal-scroll">
             
-            <button className="modal-close" onClick={() => setIsModalOpen(false)} style={{ position: 'absolute', top: '20px', right: '20px' }}>
+            <button className="modal-close lider-modal-close-pos" onClick={() => setIsModalOpen(false)}>
               <X size={24} />
             </button>
             
-            <h2 style={{ marginBottom: '24px', fontSize: '20px', fontWeight: 700, borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+            <h2 className="lider-modal-title">
               Generar reporte a Seguridad y Salud en el Trabajo
             </h2>
 
             <div className="report-grid">
               <div className="form-group full-width">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div className="lider-form-label-row">
                   <label className="form-label">{useDropdownMode ? 'Colaborador Afectado' : 'Buscar Colaborador'}</label>
                   {hasEquipo && (
-                    <button type="button" className="btn btn-outline" style={{ padding: '2px 8px', fontSize: '11px' }} onClick={() => setUseDropdownMode(!useDropdownMode)}>
+                    <button type="button" className="btn btn-outline lider-btn-toggle" onClick={() => setUseDropdownMode(!useDropdownMode)}>
                       {useDropdownMode ? <>Buscar por documento</> : <>Usar lista de equipo</>}
                     </button>
                   )}
@@ -175,20 +171,20 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
                     ))}
                   </select>
                 ) : (
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input type="number" className="form-control" placeholder="Ingrese número de documento..." value={manualDoc} onChange={(e) => setManualDoc(e.target.value)} style={{ flex: 1 }} />
+                  <div className="lider-search-row">
+                    <input type="number" className="form-control lider-search-input" placeholder="Ingrese número de documento..." value={manualDoc} onChange={(e) => setManualDoc(e.target.value)} />
                     <button type="button" className="btn btn-outline" onClick={handleManualSearch}>Buscar</button>
                   </div>
                 )}
 
                 {selectedColaborador && (
-                  <div style={{ marginTop: '10px', background: 'var(--surface2)', padding: '12px 16px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img src={selectedColaborador.foto} alt="" className="user-avatar" style={{ width: '32px', height: '32px' }}/>
-                      <span style={{ fontWeight: 700, color: 'var(--text)' }}>{selectedColaborador.nombre}</span>
-                      <span style={{ fontSize: '11px', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>{selectedColaborador.cargo || 'Colaborador'}</span>
+                  <div className="lider-selected-card">
+                    <div className="lider-selected-info">
+                      <img src={selectedColaborador.foto} alt="" className="user-avatar lider-selected-avatar"/>
+                      <span className="lider-selected-name">{selectedColaborador.nombre}</span>
+                      <span className="lider-selected-badge">{selectedColaborador.cargo || 'Colaborador'}</span>
                     </div>
-                    <button type="button" className="btn btn-outline" style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--red)', borderColor: 'rgba(239,68,68,0.2)' }} onClick={() => setSelectedColaborador(null)}>
+                    <button type="button" className="btn btn-outline lider-btn-remove" onClick={() => setSelectedColaborador(null)}>
                       Remover
                     </button>
                   </div>
@@ -239,38 +235,31 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
                 <label className="form-label">Descripción detallada</label>
                 <textarea name="descripcion" className="form-control" rows="3" placeholder="Describa la situación..." value={formData.descripcion} onChange={handleChange}></textarea>
               </div>
-              
+
               <div className="form-group full-width">
                 <label className="form-label">Adjuntar Documento</label>
-                <div style={{
-                  border: '2px dashed var(--accent)',
-                  borderRadius: '8px',
-                  padding: '30px 20px',
-                  textAlign: 'center',
-                  position: 'relative',
-                  background: 'var(--surface2)',
-                  transition: 'background 0.3s ease'
-                }}>
+                <div className="lider-upload-box" >
                   <input 
                     id="file-upload" 
                     type="file" 
                     accept="application/pdf" 
                     onChange={handleFileChange} 
+                    className="lider-upload-input"
                     style={{
                       position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
                       opacity: 0, cursor: 'pointer', zIndex: 2
                     }}
                   />
-                  <FileText size={32} color="var(--accent)" style={{ marginBottom: '12px' }} />
-                  <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600 }}>
+                  <FileText size={32} color="var(--accent)" className="lider-upload-icon" />
+                  <div className="lider-upload-text">
                     {formData.archivo ? formData.archivo.name : 'Arrastra un archivo aquí o haz clic para subir'}
                   </div>
                 </div>
               </div>
             </div>
             
-            <div style={{ marginTop: '30px', textAlign: 'right', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
-              <button className="btn btn-outline" style={{ marginRight: '10px' }} onClick={() => setIsModalOpen(false)}>Cancelar</button>
+            <div className="lider-modal-footer">
+              <button className="btn btn-outline lider-btn-cancel" onClick={() => setIsModalOpen(false)}>Cancelar</button>
               <button className="btn btn-primary" onClick={handleSubmit}><Save size={16}/> Enviar Reporte a SST</button>
             </div>
           </div>
@@ -279,8 +268,8 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
 
       <div className="cases-section">
         <div className="cases-header">
-          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>Historial de Reportes</div>
-          <button className="btn btn-outline" style={{ padding: '6px 12px' }} onClick={loadHistory}><RefreshCw size={14} /> Actualizar</button>
+          <div className="lider-section-title">Historial de Reportes</div>
+          <button className="btn btn-outline lider-btn-refresh" onClick={loadHistory}><RefreshCw size={14} /> Actualizar</button>
         </div>
         <div className="table-wrap">
           <table>
@@ -294,39 +283,39 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
             </thead>
             <tbody>
               {history.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)' }}>No has realizado ningún reporte aún.</td></tr>
+                <tr><td colSpan="4" className="lider-table-empty">No has realizado ningún reporte aún.</td></tr>
               ) : (
                 currentItems.map(r => {
                   const attr = r.attributes;
                   const empData = empCache[attr.id_empleado];
                   
-                  let estadoBadge = 'alerta';
+                  let estadoBadge = 'seguimiento';
                   let estadoLabel = 'En seguimiento';
                   if (attr.estado === true) { estadoBadge = 'abierto'; estadoLabel = 'Abierto'; }
                   else if (attr.estado === false) { estadoBadge = 'cerrado'; estadoLabel = 'Cerrado'; }
 
                   return (
                     <tr key={r.id}>
-                      <td style={{ fontWeight: 600 }}>#{r.id}</td>
+                      <td className="lider-table-id">#{r.id}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div className="lider-table-user-cell">
                           {empData?.foto ? (
-                            <img src={empData.foto} alt="Avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={empData.foto} alt="Avatar" className="lider-table-avatar" />
                           ) : (
                             <CircleUserRound size={36} color="var(--muted)" />
                           )}
                           <div>
-                            {empData ? <b style={{color: 'var(--text)'}}>{empData.nombre}</b> : `${attr.id_empleado}`}<br />
-                            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>ID: {attr.id_empleado}</span>
+                            {empData ? <b className="lider-table-emp-name">{empData.nombre}</b> : `${attr.id_empleado}`}<br />
+                            <span className="lider-table-emp-sub">ID: {attr.id_empleado}</span>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span className={`status-badge ${estadoBadge}`} style={attr.estado === null ? { background: 'rgba(245, 158, 11, 0.1)', color: 'var(--amber)' } : {}}>
+                        <span className={`status-badge ${estadoBadge}`}>
                           {estadoLabel}
                         </span>
                       </td>
-                      <td style={{ fontSize: '13px' }}>{new Date(attr.createdAt).toLocaleString('es-CO')}</td>
+                      <td className="lider-table-date">{new Date(attr.createdAt).toLocaleString('es-CO')}</td>
                     </tr>
                   )
                 })
@@ -335,27 +324,25 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
           </table>
           
           {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderTop: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text2)' }}>
+            <div className="lider-pagination">
+              <span className="lider-pagination-info">
                 Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, history.length)} de {history.length} reportes
               </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="lider-pagination-actions">
                 <button 
-                  className="btn btn-outline" 
+                  className="btn btn-outline lider-pagination-btn" 
                   disabled={currentPage === 1} 
                   onClick={() => setCurrentPage(p => p - 1)}
-                  style={{ padding: '6px 12px', fontSize: '12px' }}
                 >
                   Anterior
                 </button>
-                <span style={{ display: 'flex', alignItems: 'center', fontSize: '13px', fontWeight: 600, padding: '0 8px' }}>
+                <span className="lider-pagination-current">
                   Página {currentPage} de {totalPages}
                 </span>
                 <button 
-                  className="btn btn-outline" 
+                  className="btn btn-outline lider-pagination-btn" 
                   disabled={currentPage === totalPages} 
                   onClick={() => setCurrentPage(p => p + 1)}
-                  style={{ padding: '6px 12px', fontSize: '12px' }}
                 >
                   Siguiente
                 </button>

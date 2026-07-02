@@ -1,5 +1,245 @@
 .lider-header { margin-bottom: 24px; }
 .lider-header h2 { font-size: 24px; font-weight: 700; color: var(--text); }
 .lider-header p { color: var(--muted); margin-top: 4px; }
-.report-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 20px; }
+.report-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 .full-width { grid-column: 1 / -1; }
+
+/* Consistency & Visual Hierarchy Improvements */
+.lider-alert-banner {
+  background: rgba(80, 54, 41, 0.04);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: background var(--transition-speed, 0.2s) ease;
+}
+
+.lider-alert-banner:hover {
+  background: rgba(80, 54, 41, 0.08);
+}
+
+.lider-alert-title {
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.lider-modal-scroll {
+  overflow-y: auto;
+  display: block;
+  padding: 30px;
+}
+
+.lider-modal-close-pos {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.lider-modal-title {
+  margin-bottom: 24px;
+  font-size: 20px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  color: var(--text);
+}
+
+.lider-form-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.lider-btn-toggle {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.lider-search-row {
+  display: flex;
+  gap: 10px;
+}
+
+.lider-search-input {
+  flex: 1;
+}
+
+.lider-selected-card {
+  margin-top: 10px;
+  background: var(--surface2);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+}
+
+.lider-selected-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lider-selected-avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.lider-selected-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lider-selected-badge {
+  font-size: 11px;
+  background: var(--accent);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.lider-btn-remove {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--red);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.lider-btn-remove:hover {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.lider-upload-box {
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  padding: 30px 20px;
+  text-align: center;
+  position: relative;
+  background: var(--surface2);
+  transition: background 0.3s ease;
+}
+
+.lider-upload-box:focus-within {
+  background: rgba(80, 54, 41, 0.04);
+}
+
+.lider-upload-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: '100%';
+  height: '100%';
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.lider-upload-icon {
+  margin-bottom: 12px;
+}
+
+.lider-upload-text {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lider-modal-footer {
+  margin-top: 30px;
+  text-align: right;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.lider-btn-cancel {
+  margin-right: 10px;
+}
+
+.lider-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lider-btn-refresh {
+  padding: 6px 12px;
+}
+
+.lider-table-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+}
+
+.lider-table-id {
+  font-weight: 600;
+}
+
+.lider-table-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lider-table-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.lider-table-emp-name {
+  color: var(--text);
+}
+
+.lider-table-emp-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lider-table-date {
+  font-size: 13px;
+}
+
+.lider-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.lider-pagination-info {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.lider-pagination-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.lider-pagination-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.lider-pagination-current {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 8px;
+}
+
+/* New active/hover styling for Feedback */
+tr:hover {
+  background-color: var(--surface2);
+}

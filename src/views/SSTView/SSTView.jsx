@@ -324,27 +324,24 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
             </div>
 
             {isTemporalidadVencida && (
-              <div style={{ background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ border: '1px solid #ef4444', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <AlertTriangle size={24} />
                 <div>
                   <strong style={{ display: 'block', fontSize: '14px', marginBottom: '2px' }}>¡Alerta de seguimiento!</strong>
-                  <span style={{ fontSize: '13px' }}>El compromiso con fecha límite de <strong>{isTemporalidadVencida}</strong> ya se ha cumplido y se encuentra vencido.</span>
+                  <span style={{ fontSize: '13px' }}>El compromiso ya se cumplió y se encuentra vencido con fecha límite <strong>{isTemporalidadVencida}</strong></span>
                 </div>
               </div>
             )}
             
-            <div style={{ background: 'var(--surface2)', padding: '16px', borderRadius: '8px', marginBottom: '32px' }}>
+            <div style={{ border: '1px solid var(--surface2)', padding: '16px', borderRadius: '0 0 8px 8px', marginBottom: '32px' }}>
               <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CircleUserRound size={16} color="var(--muted)"/>
                 <span style={{ fontSize: '13px', color: 'var(--text2)' }}>
-                  <strong>Reportado por:</strong> {liderEmp.nombre}
+                  Creado por <strong>{liderEmp.nombre}</strong> el <strong>{new Date(attr.createdAt).toLocaleString('es-CO')}</strong>
                 </span>
               </div>
               <p style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text)' }}>
-                Se registra un reporte en la categoría <strong>{attr.categoria || 'N/A'}</strong>,
-                asociado a la entidad <strong>{attr.entidad_cargo || 'N/A'}: {attr.nombre_entidad || 'N/A'}</strong>,
-                con fecha de reporte inicial <strong>{new Date(attr.createdAt).toLocaleString('es-CO')}</strong>.
-                De acuerdo con la información suministrada en la descripción del evento, se reporta: <strong>{attr.descripcion || 'Sin descripción inicial.'}</strong>
+                Se registra un reporte de <strong>{attr.categoria || 'N/A'}</strong> para la entidad <strong>{attr.entidad_cargo || 'N/A'} {attr.nombre_entidad || 'N/A'}</strong>
+                <br></br>{attr.descripcion || 'Sin descripción inicial.'}
               </p>
               
               {attr.archivo?.data && attr.archivo.data.length > 0 && (
@@ -374,24 +371,20 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                   const sstDetails = empCache[sa.id_sst];
                   return (
                     <div key={s.id} className="followup-item" style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '16px', borderRadius: '8px', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                          {new Date(sa.createdAt).toLocaleString('es-CO')}
-                        </div>
-                        
-                        <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600, background: 'var(--surface2)', padding: '2px 8px', borderRadius: '12px' }}>
-                          <CircleUserRound size={16} color="var(--muted)"/><strong> Seguimiento por:</strong> {sstDetails?.nombre || sa.id_sst}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                        <div style={{ fontSize: '14px' }}>
+                          Creado por <strong>{sstDetails?.nombre || sa.id_sst}</strong> el <strong>{new Date(sa.createdAt).toLocaleString('es-CO')}</strong>
                         </div>
                       </div>
-                      <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '8px' }}>
-                        <strong>Detalle:</strong> {sa.descripcion || 'Sin descripción.'}
+                      <p style={{ fontSize: '14px', marginBottom: '8px' }}>
+                        {sa.descripcion || 'Sin descripción'}
                       </p>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{sa.accion || 'N/A'}</span>
-                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{sa.sistema || 'N/A'}</span>
+                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>Acción realizada: {sa.accion || 'N/A'}</span>
+                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>Sistema afectado: {sa.sistema || 'N/A'}</span>
                         {sa.temporalidad && (
                           <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Clock size={12} color="var(--muted)" /> Vence: {sa.temporalidad}
+                            Temporalidad: {sa.temporalidad}
                           </span>
                         )}
                       </div>
@@ -414,14 +407,12 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
               }}
               onClick={() => setIsFormOpen(!isFormOpen)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Agregar Nuevo Seguimiento
-              </div>
+              <div>Agregar Nuevo Seguimiento</div>
               {isFormOpen ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
             </div>
 
             {isFormOpen && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Acción Realizada</label>
                   <select name="accion" className="form-control" value={form.accion} onChange={handleChange}>
@@ -446,8 +437,8 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                     <option>Neurológica</option>
                     <option>Respiratoria</option>
                     <option>Alimenticio</option>
-                    <option>Otro</option>
                     <option>Neoplasias</option>
+                    <option>Otro</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -457,9 +448,9 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                 <div className="form-group">
                   <label className="form-label">Actualizar Estado</label>
                   <select name="estado" className="form-control" value={form.estado} onChange={handleChange}>
-                    <option value="null">Mantener En seguimiento</option>
-                    <option value="Abierto">Cambiar a Abierto</option>
-                    <option value="Cerrado">Cerrar Caso</option>
+                    <option value="null">En seguimiento</option>
+                    <option value="Abierto">Abierto</option>
+                    <option value="Cerrado">Cerrado</option>
                   </select>
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Descripción</label><textarea name="descripcion" className="form-control" rows="2" placeholder="Detalle la gestión realizada..." value={form.descripcion} onChange={handleChange}></textarea></div>
@@ -768,15 +759,15 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
         </div>
       </div>
 
-      <div className="charts-grid" style={{ display: 'flex', overflowX: 'auto', gap: '16px', paddingBottom: '16px', flexWrap: 'nowrap' }}>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Estado de Casos</div><div className="chart-wrap"><Doughnut data={estadoData} options={doughnutOptions} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Por Entidad</div><div className="chart-wrap"><Bar data={entidadData} options={barOptionsV} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Por Edad</div><div className="chart-wrap"><Bar data={edadData} options={barOptionsV} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Acción Realizada</div><div className="chart-wrap"><Bar data={accData} options={barOptionsH} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Sistema Afectado</div><div className="chart-wrap"><Bar data={sisData} options={barOptionsH} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Por Género</div><div className="chart-wrap"><Doughnut data={generoData} options={doughnutOptions} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Por Antigüedad</div><div className="chart-wrap"><Bar data={antiguedadData} options={barOptionsV} /></div></div>
-        <div className="chart-card" style={{ flex: '0 0 auto', width: '280px' }}><div className="chart-title">Top Diagnósticos</div><div className="chart-wrap"><Bar data={diagData} options={barOptionsH} /></div></div>
+      <div className="charts-grid">
+        <div className="chart-card"><div className="chart-title">Estado de Casos</div><div className="chart-wrap"><Doughnut data={estadoData} options={doughnutOptions} /></div></div>
+        <div className="chart-card"><div className="chart-title">Por Entidad</div><div className="chart-wrap"><Bar data={entidadData} options={barOptionsV} /></div></div>
+        <div className="chart-card"><div className="chart-title">Por Edad</div><div className="chart-wrap"><Bar data={edadData} options={barOptionsV} /></div></div>
+        <div className="chart-card"><div className="chart-title">Acción Realizada</div><div className="chart-wrap"><Bar data={accData} options={barOptionsH} /></div></div>
+        <div className="chart-card"><div className="chart-title">Sistema Afectado</div><div className="chart-wrap"><Bar data={sisData} options={barOptionsH} /></div></div>
+        <div className="chart-card"><div className="chart-title">Por Género</div><div className="chart-wrap"><Doughnut data={generoData} options={doughnutOptions} /></div></div>
+        <div className="chart-card"><div className="chart-title">Por Antigüedad</div><div className="chart-wrap"><Bar data={antiguedadData} options={barOptionsV} /></div></div>
+        <div className="chart-card"><div className="chart-title">Top Diagnósticos</div><div className="chart-wrap"><Bar data={diagData} options={barOptionsH} /></div></div>
       </div>
 
       <div className="cases-section">
