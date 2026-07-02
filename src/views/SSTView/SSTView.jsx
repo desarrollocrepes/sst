@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './SSTView.css';
-import { Search, AlertTriangle, X, Save, RefreshCw, CircleUserRound, FileText, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import { AlertTriangle, X, Save, RefreshCw, CircleUserRound, FileText, ChevronDown, ChevronUp, Clock, AlertCircle, BarChart3, CheckCircle, AlertOctagon, TrendingUp, Zap } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { API_REPORTES, API_SEGUIMIENTOS, fetchEmployeeData, getStrapiErrorMessage, getAge, getTenure, calcularIMC } from '../../utils/apiHelpers';
@@ -48,9 +48,26 @@ const customDataLabelsPlugin = {
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, customDataLabelsPlugin);
 
+// Círculo de Progreso Simple (CSS Puro Inyectado) para Estadísticas de IMC
+const ProgressCircle = ({ porcentaje, color, label }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+    <div style={{
+      position: 'relative', width: '90px', height: '90px', borderRadius: '50%',
+      background: `conic-gradient(${color} ${porcentaje}%, #e2e8f0 0)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}>
+      <div style={{ position: 'absolute', width: '70px', height: '70px', backgroundColor: '#ffffff', borderRadius: '50%' }}></div>
+      <span style={{ position: 'relative', zIndex: 1, fontSize: '15px', fontWeight: 700, color: '#334155' }}>
+        {porcentaje}%
+      </span>
+    </div>
+    <div style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>{label}</div>
+  </div>
+);
+
 const BMILinearGauge = ({ imc }) => {
   const numImc = parseFloat(imc);
-  if (isNaN(numImc)) return <span style={{ fontWeight: 700, color: 'var(--accent)' }}>N/A</span>;
+  if (isNaN(numImc)) return <span style={{ fontWeight: 700, color: 'var(--accent)' }}>No aplica</span>;
 
   let position = 0;
   let label = '';
@@ -75,12 +92,9 @@ const BMILinearGauge = ({ imc }) => {
   }
 
   return (
-    <div style={{ width: '100%', marginTop: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-         <span className="info-label" style={{ color: 'var(--text)' }}>IMC</span>
-         <span style={{ color, background: `${color}1A`, padding: '2px 8px', borderRadius: '4px' }}>
-           {numImc.toFixed(1)} - {label}
-         </span>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px' }}>
+        <span className="info-label">IMC</span><span className="info-value" style={{ textAlign: 'right' }}>{numImc.toFixed(1)} - {label}</span>
       </div>
       
       <div style={{ position: 'relative', width: '100%', height: '8px', marginBottom: '2px' }}>
@@ -105,10 +119,9 @@ const BMILinearGauge = ({ imc }) => {
       </div>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginTop: '4px', fontWeight: 600 }}>
-        <span style={{width: '25%', textAlign: 'right', paddingRight: '4px'}}>18.5</span>
-        <span style={{width: '25%', textAlign: 'right', paddingRight: '4px'}}>24.9</span>
-        <span style={{width: '25%', textAlign: 'right', paddingRight: '4px'}}>29.9</span>
-        <span style={{width: '25%'}}></span>
+        <span style={{width: '28%', textAlign: 'right'}}>18.5</span>
+        <span style={{width: '10%', textAlign: 'right'}}>24.9</span>
+        <span style={{width: '30%'}}>29.9</span>
       </div>
     </div>
   );
@@ -125,23 +138,36 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
 
   const [form, setForm] = useState({
     accion: '', sistema: '', temporalidad: '', descripcion: '', 
-    estado: attr.estado === false ? 'Cerrado' : (attr.estado === true ? 'Abierto' : 'null')
+    estado: attr.estado === false ? 'Cerrado' : 'null',
+    peso: attr.peso_kg || '', talla: attr.talla_m || ''
   });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const validEmployeeId = (value) => {
+    const normalized = String(value ?? '').trim();
+    return Boolean(normalized) && /^\d+$/.test(normalized) && normalized !== 'SISTEMA';
+  };
+
+  const sstIds = useMemo(() => {
+    return [...new Set(segs.map(s => s.attributes?.id_sst).filter(Boolean).filter(validEmployeeId))];
+  }, [segs]);
 
   useEffect(() => {
     const fetchDependencies = async () => {
       let currentEmp = empCache[attr.id_empleado];
-      if (!currentEmp) {
+      if (validEmployeeId(attr.id_empleado) && !currentEmp) {
          currentEmp = await fetchEmployeeData(attr.id_empleado);
          if (currentEmp) {
            setEmpCache(prev => ({...prev, [attr.id_empleado]: currentEmp}));
            setEmp(currentEmp);
          }
-      } else {
+      } else if (currentEmp) {
          setEmp(currentEmp);
       }
 
-      if (attr.id_lider) {
+      if (validEmployeeId(attr.id_lider)) {
         let currentLider = empCache[attr.id_lider];
         if (!currentLider) {
            currentLider = await fetchEmployeeData(attr.id_lider);
@@ -154,25 +180,26 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
         }
       }
 
-      const sstIds = [...new Set(segs.map(s => s.attributes.id_sst).filter(Boolean))];
-      const uncachedSst = sstIds.filter(id => !empCache[id]);
-      if (uncachedSst.length > 0) {
-        const newEmps = {};
-        await Promise.all(uncachedSst.map(async id => {
-           const d = await fetchEmployeeData(id);
-           if (d) newEmps[id] = d;
-        }));
-        setEmpCache(prev => ({...prev, ...newEmps}));
+      if (sstIds.length > 0) {
+        const uncachedSst = sstIds.filter(id => !empCache[id]);
+        if (uncachedSst.length > 0) {
+          const newEmps = {};
+          await Promise.all(uncachedSst.map(async id => {
+             const d = await fetchEmployeeData(id);
+             if (d) newEmps[id] = d;
+          }));
+          setEmpCache(prev => ({...prev, ...newEmps}));
+        }
       }
       setSstUpdate(prev => prev + 1); 
     };
     fetchDependencies();
-  }, [attr.id_empleado, attr.id_lider, segs, empCache, setEmpCache]);
+  }, [attr.id_empleado, attr.id_lider, sstIds.join(','), setEmpCache]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const ageVal = getAge(emp.birthday || emp.fecha_nacimiento);
-  const edadCalc = ageVal !== null ? `${ageVal} años` : 'N/A';
+  const edadCalc = ageVal !== null ? `${ageVal} años` : 'No aplica';
   const imcCalc = calcularIMC(attr.peso_kg, attr.talla_m);
 
   const isTemporalidadVencida = useMemo(() => {
@@ -183,12 +210,41 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
     const tempDate = new Date(`${tempStr}T00:00:00`);
     
     if (!isNaN(tempDate.getTime())) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       return tempDate < today ? tempStr : false;
     }
     return false;
+  }, [segs, today]);
+
+  const displayEstado = attr.estado === false || isTemporalidadVencida ? false : attr.estado;
+
+  const latestSeguimiento = useMemo(() => {
+    return segs.length ? segs[segs.length - 1] : null;
   }, [segs]);
+
+  const closureNotice = useMemo(() => {
+    const description = latestSeguimiento?.attributes?.descripcion || '';
+
+    if (description.includes('Cierre manual')) {
+      return {
+        type: 'info',
+        title: 'Caso cerrado manualmente',
+        text: `Cerrado por ${user?.nombre || 'un SST'} (${user?.document_number || 'No aplica'}).`
+      };
+    }
+
+    return null;
+  }, [latestSeguimiento, user]);
+
+  const autoCloseNotice = useMemo(() => {
+    if (isTemporalidadVencida && attr.estado !== false) {
+      return {
+        type: 'error',
+        title: 'Caso cerrado automáticamente',
+        text: `Se cerró automáticamente porque la temporalidad venció el ${isTemporalidadVencida}.`
+      };
+    }
+    return null;
+  }, [isTemporalidadVencida, attr.estado]);
 
   const getFullUrl = (url) => {
     if (!url) return '';
@@ -203,8 +259,16 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
 
     setLoading(true);
     try {
+      const isManualClosure = form.estado === 'Cerrado';
+      const closureText = isManualClosure
+        ? `Cierre manual del caso por ${user?.nombre || 'SST'} (${user?.document_number || 'No aplica'}).`
+        : '';
+      const finalDescription = isManualClosure
+        ? `${form.descripcion}\n\n${closureText}`.trim()
+        : form.descripcion;
+
       const segPayload = {
-        descripcion: form.descripcion,
+        descripcion: finalDescription,
         accion: form.accion,
         sistema: form.sistema,
         temporalidad: form.temporalidad || null,
@@ -232,16 +296,22 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
       if (form.estado === 'Abierto') nuevoEstadoValue = true;
       if (form.estado === 'Cerrado') nuevoEstadoValue = false;
 
+      const updatePayload = {
+        estado: nuevoEstadoValue, 
+        sst_seguimientos: existingSegs
+      };
+
+      if (form.peso) updatePayload.peso_kg = parseFloat(form.peso);
+      if (form.talla) updatePayload.talla_m = parseFloat(form.talla);
+
       await fetch(`${API_REPORTES}/${reporte.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: { estado: nuevoEstadoValue, sst_seguimientos: existingSegs }
-        })
+        body: JSON.stringify({ data: updatePayload })
       });
 
       showToast('Seguimiento guardado exitosamente');
-      setForm({ accion: '', sistema: '', temporalidad: '', descripcion: '', estado: form.estado });
+      setForm({ accion: '', sistema: '', temporalidad: '', descripcion: '', estado: form.estado, peso: form.peso, talla: form.talla });
       setIsFormOpen(false);
       await onRefresh();
 
@@ -253,8 +323,8 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
   };
 
   let estadoBadge = 'alerta'; let estadoLabel = 'En seguimiento';
-  if (attr.estado === true) { estadoBadge = 'abierto'; estadoLabel = 'Abierto'; }
-  else if (attr.estado === false) { estadoBadge = 'cerrado'; estadoLabel = 'Cerrado'; }
+  if (displayEstado === true) { estadoBadge = 'abierto'; estadoLabel = 'Abierto'; }
+  else if (displayEstado === false) { estadoBadge = 'cerrado'; estadoLabel = 'Cerrado'; }
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target.className === 'modal-overlay' && onClose()}>
@@ -271,37 +341,28 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
               </div>
             )}
             
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>{emp.nombre || 'Cargando...'}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>{emp.nombre || attr.id_empleado}</div>
             <div style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>{attr.id_empleado}</div>
-            <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px', fontWeight: 600 }}>{attr.genero || emp.genero || 'N/A'}</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px', fontWeight: 600 }}>{attr.genero || emp.genero || 'No aplica'}</div>
 
             <div className="info-grid" style={{ textAlign: 'left', gridTemplateColumns: '1fr', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Cargo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.cargo || 'N/A'}</span>
+                <span className="info-label">Área <br /> Cargo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.area_nombre || emp.area || 'No aplica'} <br /> {emp.cargo || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Área</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.area_nombre || emp.area || 'N/A'}</span>
+                <span className="info-label">Dirección <br /> Departamento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.direction || emp.direccion || 'No aplica'} <br /> {emp.departamento || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Departamento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.departamento || 'N/A'}</span>
+                <span className="info-label">Nacimiento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.birthday ||'No aplica'} ({edadCalc})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Dirección</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.direction || emp.direccion || 'N/A'}</span>
+                <span className="info-label">Ingreso</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.ingreso || emp.fecha_ingreso || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Nacimiento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.birthday ||'N/A'} ({edadCalc})</span>
+                <span className="info-label">Correo <br /> Celular</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.correo || emp.email || 'No aplica'} <br /> {emp.Celular || emp.celular || emp.telefono || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Ingreso</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.ingreso || emp.fecha_ingreso || 'N/A'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Celular</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.Celular || emp.celular || emp.telefono || 'N/A'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Correo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.correo || emp.email || 'N/A'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Peso / Talla</span><span className="info-value" style={{ textAlign: 'right' }}>{attr.peso_kg ? `${attr.peso_kg}kg` : '-'} / {attr.talla_m ? `${attr.talla_m}m` : '-'}</span>
+                <span className="info-label">Peso <br /> Talla</span><span className="info-value" style={{ textAlign: 'right' }}>{attr.peso_kg ? `${attr.peso_kg}kg` : '-'} <br /> {attr.talla_m ? `${attr.talla_m}m` : '-'}</span>
               </div>
               {attr.peso_kg && attr.talla_m && (
                 <div>
@@ -332,6 +393,26 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                 </div>
               </div>
             )}
+
+            {(autoCloseNotice || closureNotice) && (
+              <div style={{
+                border: (autoCloseNotice || closureNotice).type === 'error' ? '1px solid #ef4444' : '1px solid #3b82f6',
+                color: (autoCloseNotice || closureNotice).type === 'error' ? '#b91c1c' : '#1d4ed8',
+                background: (autoCloseNotice || closureNotice).type === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(59, 130, 246, 0.08)',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <AlertCircle size={20} />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '14px', marginBottom: '2px' }}>{(autoCloseNotice || closureNotice).title}</strong>
+                  <span style={{ fontSize: '13px' }}>{(autoCloseNotice || closureNotice).text}</span>
+                </div>
+              </div>
+            )}
             
             <div style={{ border: '1px solid var(--surface2)', padding: '16px', borderRadius: '0 0 8px 8px', marginBottom: '32px' }}>
               <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -340,7 +421,7 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                 </span>
               </div>
               <p style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text)' }}>
-                Se registra un reporte de <strong>{attr.categoria || 'N/A'}</strong> para la entidad <strong>{attr.entidad_cargo || 'N/A'} {attr.nombre_entidad || 'N/A'}</strong>
+                Se registra un reporte de <strong>{attr.categoria || 'No aplica'}</strong> para la entidad <strong>{attr.entidad_cargo || 'No aplica'} {attr.nombre_entidad || 'No aplica'}</strong>
                 <br></br>{attr.descripcion || 'Sin descripción inicial.'}
               </p>
               
@@ -380,8 +461,8 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                         {sa.descripcion || 'Sin descripción'}
                       </p>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>Acción realizada: {sa.accion || 'N/A'}</span>
-                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>Sistema afectado: {sa.sistema || 'N/A'}</span>
+                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>Acción realizada: {sa.accion || 'No aplica'}</span>
+                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>Sistema afectado: {sa.sistema || 'No aplica'}</span>
                         {sa.temporalidad && (
                           <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                             Temporalidad: {sa.temporalidad}
@@ -413,6 +494,14 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
 
             {isFormOpen && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">Peso (KG)</label>
+                  <input type="number" name="peso" className="form-control" placeholder="Ej: 70" value={form.peso} onChange={handleChange} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Talla (Metros)</label>
+                  <input type="number" step="0.01" name="talla" className="form-control" placeholder="Ej: 1.75" value={form.talla} onChange={handleChange} />
+                </div>
                 <div className="form-group">
                   <label className="form-label">Acción Realizada</label>
                   <select name="accion" className="form-control" value={form.accion} onChange={handleChange}>
@@ -474,17 +563,25 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
   const [search, setSearch] = useState('');
   const [selectedReporte, setSelectedReporte] = useState(null);
 
+  // Estados de los nuevos filtros dinámicos
+  const [filtroAtendidos, setFiltroAtendidos] = useState(false);
+  const [filtroAccion, setFiltroAccion] = useState('');
+  const [filtroSistema, setFiltroSistema] = useState('');
+  const [filtroDiagnostico, setFiltroDiagnostico] = useState('');
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_REPORTES}?populate=*&publicationState=preview`);
       if (!res.ok) throw new Error('API Error');
-      const json = await res.json();
-      const sorted = json.data.sort((a, b) => new Date(b.attributes.createdAt) - new Date(a.attributes.createdAt));
-      
+      let json = await res.json();
+      let sorted = json.data.sort((a, b) => new Date(b.attributes.createdAt) - new Date(a.attributes.createdAt));
       const ids = [...new Set(sorted.map(r => r.attributes.id_empleado).filter(Boolean))];
       const uncachedIds = ids.filter(id => !empCache[id]);
 
@@ -506,66 +603,93 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
   };
 
   useEffect(() => { loadData(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [filter, search]);
+  useEffect(() => { setCurrentPage(1); }, [filter, search, filtroAtendidos, filtroAccion, filtroSistema, filtroDiagnostico]);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const limitProximos = new Date(today);
   limitProximos.setDate(limitProximos.getDate() + 5);
 
+  const reportesConMeta = useMemo(() => {
+    return reportes.map(r => {
+      const attr = r.attributes;
+      const sgs = attr.sst_seguimientos?.data || [];
+      const ultimoConTemp = sgs.slice().reverse().find(s => s.attributes.temporalidad);
+      const temporalidadDate = ultimoConTemp ? new Date(`${ultimoConTemp.attributes.temporalidad}T00:00:00`) : null;
+      const temporalidadVencida = temporalidadDate && !isNaN(temporalidadDate.getTime()) && temporalidadDate < today;
+      const displayEstado = attr.estado === false || temporalidadVencida ? false : attr.estado;
+      return { ...r, displayEstado, temporalidadVencida, temporalidadDate, ultimoConTemp };
+    });
+  }, [reportes, today]);
+
   const stats = useMemo(() => {
-    let t = reportes.length;
+    let t = reportesConMeta.length;
     let ab = 0; let cer = 0; let seg = 0;
     let ven = 0; let prox = 0;
 
-    reportes.forEach(r => {
-      const attr = r.attributes;
-      if (attr.estado === true) ab++;
-      else if (attr.estado === false) cer++;
+    reportesConMeta.forEach(r => {
+      if (r.displayEstado === true) ab++;
+      else if (r.displayEstado === false) cer++;
       else seg++;
 
-      if (attr.estado !== false) {
-        const sgs = attr.sst_seguimientos?.data || [];
-        const ultimoConTemp = sgs.slice().reverse().find(s => s.attributes.temporalidad);
-        if (ultimoConTemp) {
-          const tDate = new Date(`${ultimoConTemp.attributes.temporalidad}T00:00:00`);
-          if (!isNaN(tDate.getTime())) {
-            if (tDate < today) ven++;
-            else if (tDate <= limitProximos) prox++;
-          }
-        }
+      if (r.temporalidadDate && !isNaN(r.temporalidadDate.getTime())) {
+        if (r.temporalidadDate < today) ven++;
+        else if (r.temporalidadDate <= limitProximos) prox++;
       }
     });
     return { t, ab, cer, seg, ven, prox };
-  }, [reportes, today, limitProximos]);
+  }, [reportesConMeta, today, limitProximos]);
+
+  // Cálculo para el nuevo gráfico de IMC
+  const imcStats = useMemo(() => {
+    let total = 0, bajo = 0, normal = 0, sobrepeso = 0, obesidad = 0;
+    reportes.forEach(r => {
+       const p = parseFloat(r.attributes.peso_kg);
+       const t = parseFloat(r.attributes.talla_m);
+       if(p && t) {
+          const imc = p / (t * t);
+          total++;
+          if(imc < 18.5) bajo++;
+          else if(imc < 25) normal++;
+          else if(imc < 30) sobrepeso++;
+          else obesidad++;
+       }
+    });
+    return {
+       bajo: total ? Math.round((bajo/total)*100) : 0,
+       normal: total ? Math.round((normal/total)*100) : 0,
+       sobrepeso: total ? Math.round((sobrepeso/total)*100) : 0,
+       obesidad: total ? Math.round((obesidad/total)*100) : 0,
+    }
+  }, [reportes]);
 
   const filteredReportes = useMemo(() => {
-    let filtered = reportes;
-    if (filter === 'Abierto') filtered = filtered.filter(r => r.attributes.estado === true);
-    else if (filter === 'Cerrado') filtered = filtered.filter(r => r.attributes.estado === false);
-    else if (filter === 'En seguimiento') filtered = filtered.filter(r => r.attributes.estado === null);
+    let filtered = reportesConMeta;
+    if (filter === 'Abierto') filtered = filtered.filter(r => r.displayEstado === true);
+    else if (filter === 'Cerrado') filtered = filtered.filter(r => r.displayEstado === false);
+    else if (filter === 'En seguimiento') filtered = filtered.filter(r => r.displayEstado === null);
     else if (filter === 'Vencidos') {
-      filtered = filtered.filter(r => {
-        if (r.attributes.estado === false) return false;
-        const sgs = r.attributes.sst_seguimientos?.data || [];
-        const ultimo = sgs.slice().reverse().find(s => s.attributes.temporalidad);
-        if (ultimo) {
-           const tDate = new Date(`${ultimo.attributes.temporalidad}T00:00:00`);
-           return !isNaN(tDate) && tDate < today;
-        }
-        return false;
-      });
+      filtered = filtered.filter(r => r.temporalidadVencida);
     } else if (filter === 'Proximos') {
-      filtered = filtered.filter(r => {
-        if (r.attributes.estado === false) return false;
-        const sgs = r.attributes.sst_seguimientos?.data || [];
-        const ultimo = sgs.slice().reverse().find(s => s.attributes.temporalidad);
-        if (ultimo) {
-           const tDate = new Date(`${ultimo.attributes.temporalidad}T00:00:00`);
-           return !isNaN(tDate) && tDate >= today && tDate <= limitProximos;
-        }
-        return false;
-      });
+      filtered = filtered.filter(r => r.temporalidadDate && !isNaN(r.temporalidadDate.getTime()) && r.temporalidadDate >= today && r.temporalidadDate <= limitProximos);
+    }
+
+    // Filtros Adicionales
+    if (filtroAtendidos) {
+      filtered = filtered.filter(r => 
+        (r.attributes.sst_seguimientos?.data || []).some(s => s.attributes.id_sst === user.document_number.toString())
+      );
+    }
+    if (filtroAccion) {
+      filtered = filtered.filter(r => 
+        (r.attributes.sst_seguimientos?.data || []).some(s => s.attributes.accion === filtroAccion)
+      );
+    }
+    if (filtroSistema) {
+      filtered = filtered.filter(r => 
+        (r.attributes.sst_seguimientos?.data || []).some(s => s.attributes.sistema === filtroSistema)
+      );
+    }
+    if (filtroDiagnostico) {
+      filtered = filtered.filter(r => r.attributes.categoria === filtroDiagnostico);
     }
 
     if (search) {
@@ -579,7 +703,7 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
       });
     }
     return filtered;
-  }, [reportes, filter, search, empCache, today, limitProximos]);
+  }, [reportesConMeta, filter, search, empCache, today, limitProximos, filtroAtendidos, filtroAccion, filtroSistema, filtroDiagnostico, user.document_number]);
 
   const totalPages = Math.ceil(filteredReportes.length / itemsPerPage);
   const currentItems = filteredReportes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -588,16 +712,16 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
 
   const estadoData = useMemo(() => {
     const map = { 'Abierto': 0, 'Cerrado': 0, 'En seg.': 0 };
-    reportes.forEach(r => {
-      if (r.attributes.estado === false) map['Cerrado']++;
-      else if (r.attributes.estado === true) map['Abierto']++;
+    reportesConMeta.forEach(r => {
+      if (r.displayEstado === false) map['Cerrado']++;
+      else if (r.displayEstado === true) map['Abierto']++;
       else map['En seg.']++;
     });
     return {
       labels: Object.keys(map),
       datasets: [{ data: Object.values(map), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'], borderWidth: 0 }]
     };
-  }, [reportes]);
+  }, [reportesConMeta]);
 
   const accData = useMemo(() => {
     const map = {};
@@ -668,11 +792,11 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
   }, [reportes, empCache]);
 
   const antiguedadData = useMemo(() => {
-    const map = { '0-1 año': 0, '1-3 años': 0, '3-5 años': 0, '5+ años': 0, 'N/A': 0 };
+    const map = { '0-1 año': 0, '1-3 años': 0, '3-5 años': 0, '5+ años': 0, 'No aplica': 0 };
     reportes.forEach(r => {
       const emp = empCache[r.attributes.id_empleado];
       const t = emp ? getTenure(emp.ingreso || emp.fecha_ingreso) : null;
-      if (t === null || isNaN(t)) map['N/A']++;
+      if (t === null || isNaN(t)) map['No aplica']++;
       else if (t <= 1) map['0-1 año']++;
       else if (t <= 3) map['1-3 años']++;
       else if (t <= 5) map['3-5 años']++;
@@ -721,45 +845,139 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
   return (
     <div className="view-container active container">
       
+      {/* Alertas Críticas - Estilo Mejorado */}
       {(stats.ven > 0 || stats.prox > 0) && (
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
           {stats.ven > 0 && (
-            <div className="alert-banner" style={{ flex: 1, margin: 0, padding: '16px', cursor: 'pointer', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }} onClick={() => setFilter('Vencidos')}>
-              <AlertCircle size={28} color="#ef4444" />
-              <div className="alert-text">
-                <strong style={{ color: '#b91c1c' }}>{stats.ven} Casos con temporalidad vencida</strong>
-                <p style={{ color: '#991b1b', fontSize: '13px' }}>Haz clic aquí para filtrar los casos que ya superaron su fecha límite de seguimiento.</p>
+            <div 
+              className="alert-banner" 
+              style={{ 
+                flex: '1 1 auto',
+                minWidth: '280px',
+                margin: 0, 
+                padding: '1rem 1.25rem', 
+                cursor: 'pointer', 
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05))',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderLeft: '4px solid #ef4444'
+              }} 
+              onClick={() => setFilter('Vencidos')}
+            >
+              <AlertOctagon size={32} color="#dc2626" strokeWidth={1.5} style={{ flexShrink: 0 }} />
+              <div className="alert-text" style={{ flex: 1 }}>
+                <strong style={{ color: '#991b1b', fontSize: '0.95rem' }}>{stats.ven} Casos Vencidos</strong>
+                <p style={{ color: '#7f1d1d', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>Requieren atención inmediata</p>
               </div>
             </div>
           )}
           {stats.prox > 0 && (
-            <div className="alert-banner" style={{ flex: 1, margin: 0, padding: '16px', cursor: 'pointer', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b' }} onClick={() => setFilter('Proximos')}>
-              <Clock size={28} color="#f59e0b" />
-              <div className="alert-text">
-                <strong style={{ color: '#b45309' }}>{stats.prox} Casos próximos a vencer</strong>
-                <p style={{ color: '#92400e', fontSize: '13px' }}>Haz clic aquí para revisar los casos que vencen en los próximos 5 días.</p>
+            <div 
+              className="alert-banner"
+              style={{ 
+                flex: '1 1 auto',
+                minWidth: '280px',
+                margin: 0, 
+                padding: '1rem 1.25rem', 
+                cursor: 'pointer',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05))',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderLeft: '4px solid #f59e0b'
+              }} 
+              onClick={() => setFilter('Proximos')}
+            >
+              <Clock size={32} color="#d97706" strokeWidth={1.5} style={{ flexShrink: 0 }} />
+              <div className="alert-text" style={{ flex: 1 }}>
+                <strong style={{ color: '#92400e', fontSize: '0.95rem' }}>{stats.prox} Próximos a Vencer</strong>
+                <p style={{ color: '#78350f', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>En los próximos 5 días</p>
               </div>
             </div>
           )}
         </div>
       )}
 
+      {/* KPIs - Grid Mejorado */}
       <div className="kpis">
-        <div className={`kpi ${filter === 'todos' ? 'active-filter' : ''}`} onClick={() => setFilter('todos')}>
-          <div className="kpi-label">Total Reportes</div><div className="kpi-value">{stats.t}</div>
+        <div 
+          className={`kpi ${filter === 'todos' ? 'active-filter' : ''}`} 
+          onClick={() => setFilter('todos')}
+          style={{ borderLeft: '4px solid var(--primary)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div>
+              <div className="kpi-label">Total Reportes</div>
+              <div className="kpi-value">{stats.t}</div>
+            </div>
+            <BarChart3 size={24} color="var(--primary)" strokeWidth={1.5} style={{ opacity: 0.7 }} />
+          </div>
         </div>
-        <div className={`kpi abierto ${filter === 'Abierto' ? 'active-filter' : ''}`} onClick={() => setFilter('Abierto')}>
-          <div className="kpi-label">Abiertos</div><div className="kpi-value">{stats.ab}</div>
+
+        <div 
+          className={`kpi abierto ${filter === 'Abierto' ? 'active-filter' : ''}`}
+          onClick={() => setFilter('Abierto')}
+          style={{ borderLeft: '4px solid #3b82f6' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div>
+              <div className="kpi-label">Abiertos</div>
+              <div className="kpi-value">{stats.ab}</div>
+            </div>
+            <TrendingUp size={24} color="#3b82f6" strokeWidth={1.5} style={{ opacity: 0.7 }} />
+          </div>
         </div>
-        <div className={`kpi cerrado ${filter === 'Cerrado' ? 'active-filter' : ''}`} onClick={() => setFilter('Cerrado')}>
-          <div className="kpi-label">Cerrados</div><div className="kpi-value">{stats.cer}</div>
+
+        <div 
+          className={`kpi cerrado ${filter === 'Cerrado' ? 'active-filter' : ''}`}
+          onClick={() => setFilter('Cerrado')}
+          style={{ borderLeft: '4px solid #10b981' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div>
+              <div className="kpi-label">Cerrados</div>
+              <div className="kpi-value">{stats.cer}</div>
+            </div>
+            <CheckCircle size={24} color="#10b981" strokeWidth={1.5} style={{ opacity: 0.7 }} />
+          </div>
         </div>
-        <div className={`kpi alerta ${filter === 'En seguimiento' ? 'active-filter' : ''}`} onClick={() => setFilter('En seguimiento')}>
-          <div className="kpi-label">En seguimiento</div><div className="kpi-value">{stats.seg}</div>
+
+        <div 
+          className={`kpi alerta ${filter === 'En seguimiento' ? 'active-filter' : ''}`}
+          onClick={() => setFilter('En seguimiento')}
+          style={{ borderLeft: '4px solid #f59e0b' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div>
+              <div className="kpi-label">En Seguimiento</div>
+              <div className="kpi-value">{stats.seg}</div>
+            </div>
+            <Zap size={24} color="#f59e0b" strokeWidth={1.5} style={{ opacity: 0.7 }} />
+          </div>
+        </div>
+
+        <div 
+          className={`kpi vencido ${filter === 'Vencidos' ? 'active-filter' : ''}`}
+          onClick={() => setFilter('Vencidos')}
+          style={{ borderLeft: '4px solid #ef4444' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div>
+              <div className="kpi-label">Vencidos</div>
+              <div className="kpi-value">{stats.ven}</div>
+            </div>
+            <AlertOctagon size={24} color="#ef4444" strokeWidth={1.5} style={{ opacity: 0.7 }} />
+          </div>
         </div>
       </div>
 
       <div className="charts-grid">
+        <div className="chart-card">
+          <h3 className="chart-title">IMC</h3>
+          <div style={{ display: 'flex',  alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+            <ProgressCircle porcentaje={imcStats.bajo} color="#503629" label="Bajo Peso" />
+            <ProgressCircle porcentaje={imcStats.normal} color="#503629" label="Normal" />
+            <ProgressCircle porcentaje={imcStats.sobrepeso} color="#503629" label="Sobrepeso" />
+            <ProgressCircle porcentaje={imcStats.obesidad} color="#503629" label="Obesidad" />
+          </div>
+        </div>
         <div className="chart-card"><div className="chart-title">Estado de Casos</div><div className="chart-wrap"><Doughnut data={estadoData} options={doughnutOptions} /></div></div>
         <div className="chart-card"><div className="chart-title">Por Entidad</div><div className="chart-wrap"><Bar data={entidadData} options={barOptionsV} /></div></div>
         <div className="chart-card"><div className="chart-title">Por Edad</div><div className="chart-wrap"><Bar data={edadData} options={barOptionsV} /></div></div>
@@ -771,11 +989,41 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
       </div>
 
       <div className="cases-section">
-        <div className="cases-header">
-          <div style={{ fontSize: '18px', fontWeight: 700 }}>Registro de Casos y Seguimientos</div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-outline" onClick={loadData}><RefreshCw size={14} /> Actualizar</button>
-            <input type="text" className="form-control search-box" placeholder="Buscar por cédula o diagnóstico..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="cases-header" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '16px'}}>
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+             <div style={{ fontSize: '18px', fontWeight: 700 }}>Registro de Casos y Seguimientos</div>
+             <div style={{ display: 'flex', gap: '10px' }}>
+               <button className="btn btn-outline" onClick={loadData}><RefreshCw size={14} /> Actualizar</button>
+               <input type="text" className="form-control search-box" placeholder="Buscar por cédula..." value={search} onChange={(e) => setSearch(e.target.value)} />
+             </div>
+          </div>
+          
+          {/* Nueva Sección de Filtros Dinámicos */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%' }}>
+            <button 
+              className={`btn ${filtroAtendidos ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setFiltroAtendidos(!filtroAtendidos)}
+            >
+              {filtroAtendidos ? 'Mostrando Mis Casos Atendidos' : 'Filtrar Mis Casos Atendidos'}
+            </button>
+            <select className="form-control" style={{ flex: 1, minWidth: '160px' }} value={filtroAccion} onChange={(e) => setFiltroAccion(e.target.value)}>
+              <option value="">Acción (Todas)</option>
+              {Array.from(new Set(reportes.flatMap(r => r.attributes.sst_seguimientos?.data?.map(s => s.attributes.accion) || []).filter(Boolean))).map(acc => (
+                 <option key={acc} value={acc}>{acc}</option>
+              ))}
+            </select>
+            <select className="form-control" style={{ flex: 1, minWidth: '160px' }} value={filtroSistema} onChange={(e) => setFiltroSistema(e.target.value)}>
+              <option value="">Sistema (Todos)</option>
+              {Array.from(new Set(reportes.flatMap(r => r.attributes.sst_seguimientos?.data?.map(s => s.attributes.sistema) || []).filter(Boolean))).map(sys => (
+                 <option key={sys} value={sys}>{sys}</option>
+              ))}
+            </select>
+            <select className="form-control" style={{ flex: 1, minWidth: '160px' }} value={filtroDiagnostico} onChange={(e) => setFiltroDiagnostico(e.target.value)}>
+              <option value="">Diagnóstico (Todos)</option>
+              {Array.from(new Set(reportes.map(r => r.attributes.categoria).filter(Boolean))).map(diag => (
+                 <option key={diag} value={diag}>{diag}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -799,10 +1047,16 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
                   const segs = attr.sst_seguimientos?.data || [];
                   const empData = empCache[attr.id_empleado];
                   
+                  let displayEstado = attr.estado;
+                  const ultimoTemp = segs.slice().reverse().find(s => s.attributes.temporalidad);
+                  const temporalidadDate = ultimoTemp ? new Date(`${ultimoTemp.attributes.temporalidad}T00:00:00`) : null;
+                  const temporalidadVencida = temporalidadDate && !isNaN(temporalidadDate.getTime()) && temporalidadDate < today;
+                  if (temporalidadVencida && attr.estado !== false) displayEstado = false;
+
                   let estadoBadge = 'alerta';
                   let estadoLabel = 'En seguimiento';
-                  if (attr.estado === true) { estadoBadge = 'abierto'; estadoLabel = 'Abierto'; }
-                  else if (attr.estado === false) { estadoBadge = 'cerrado'; estadoLabel = 'Cerrado'; }
+                  if (displayEstado === true) { estadoBadge = 'abierto'; estadoLabel = 'Abierto'; }
+                  else if (displayEstado === false) { estadoBadge = 'cerrado'; estadoLabel = 'Cerrado'; }
 
                   return (
                     <tr key={r.id} onClick={() => setSelectedReporte(r)}>

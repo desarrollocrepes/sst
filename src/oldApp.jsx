@@ -108,7 +108,7 @@ const getTenure = (hireDate) => {
 };
 
 const calcularIMC = (pesoKg, tallaM) => {
-  if (!pesoKg || !tallaM) return 'N/A';
+  if (!pesoKg || !tallaM) return 'No aplica';
   const imc = pesoKg / (tallaM * tallaM);
   return imc.toFixed(1);
 };
@@ -119,7 +119,7 @@ const calcularIMC = (pesoKg, tallaM) => {
 // Componente para graficar el IMC de manera lineal
 const BMILinearGauge = ({ imc }) => {
   const numImc = parseFloat(imc);
-  if (isNaN(numImc)) return <span style={{ fontWeight: 700, color: 'var(--accent)' }}>N/A</span>;
+  if (isNaN(numImc)) return <span style={{ fontWeight: 700, color: 'var(--accent)' }}>No aplica</span>;
 
   let position = 0;
   let label = '';
@@ -842,11 +842,11 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
   }, [reportes, empCache]);
 
   const antiguedadData = useMemo(() => {
-    const map = { '0-1 año': 0, '1-3 años': 0, '3-5 años': 0, '5+ años': 0, 'N/A': 0 };
+    const map = { '0-1 año': 0, '1-3 años': 0, '3-5 años': 0, '5+ años': 0, 'No aplica': 0 };
     reportes.forEach(r => {
       const emp = empCache[r.attributes.id_empleado];
       const t = emp ? getTenure(emp.ingreso || emp.fecha_ingreso) : null;
-      if (t === null || isNaN(t)) map['N/A']++;
+      if (t === null || isNaN(t)) map['No aplica']++;
       else if (t <= 1) map['0-1 año']++;
       else if (t <= 3) map['1-3 años']++;
       else if (t <= 5) map['3-5 años']++;
@@ -1127,7 +1127,7 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
 
   // Cálculos dinámicos
   const ageVal = getAge(emp.birthday || emp.fecha_nacimiento);
-  const edadCalc = ageVal !== null ? `${ageVal} años` : 'N/A';
+  const edadCalc = ageVal !== null ? `${ageVal} años` : 'No aplica';
   
   const imcCalc = calcularIMC(attr.peso_kg, attr.talla_m);
 
@@ -1230,32 +1230,32 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
             
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>{emp.nombre || 'Cargando...'}</div>
             <div style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>{attr.id_empleado}</div>
-            <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px', fontWeight: 600 }}>{attr.genero || emp.genero || 'N/A'}</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px', fontWeight: 600 }}>{attr.genero || emp.genero || 'No aplica'}</div>
 
             <div className="info-grid" style={{ textAlign: 'left', gridTemplateColumns: '1fr', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Cargo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.cargo || 'N/A'}</span>
+                <span className="info-label">Cargo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.cargo || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Área</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.area_nombre || emp.area || 'N/A'}</span>
+                <span className="info-label">Área</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.area_nombre || emp.area || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Departamento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.departamento || 'N/A'}</span>
+                <span className="info-label">Departamento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.departamento || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Dirección</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.direction || emp.direccion || 'N/A'}</span>
+                <span className="info-label">Dirección</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.direction || emp.direccion || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Nacimiento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.birthday ||'N/A'} ({edadCalc})</span>
+                <span className="info-label">Nacimiento</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.birthday ||'No aplica'} ({edadCalc})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Ingreso</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.ingreso || emp.fecha_ingreso || 'N/A'}</span>
+                <span className="info-label">Ingreso</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.ingreso || emp.fecha_ingreso || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Celular</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.Celular || emp.celular || emp.telefono || 'N/A'}</span>
+                <span className="info-label">Celular</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.Celular || emp.celular || emp.telefono || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span className="info-label">Correo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.correo || emp.email || 'N/A'}</span>
+                <span className="info-label">Correo</span><span className="info-value" style={{ textAlign: 'right' }}>{emp.correo || emp.email || 'No aplica'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
                 <span className="info-label">Peso / Talla</span><span className="info-value" style={{ textAlign: 'right' }}>{attr.peso_kg ? `${attr.peso_kg}kg` : '-'} / {attr.talla_m ? `${attr.talla_m}m` : '-'}</span>
@@ -1298,8 +1298,8 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                 </span>
               </div>
               <p style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text)' }}>
-                Se registra un reporte en la categoría <strong>{attr.categoria || 'N/A'}</strong>,
-                asociado a la entidad <strong>{attr.entidad_cargo || 'N/A'}: {attr.nombre_entidad || 'N/A'}</strong>,
+                Se registra un reporte en la categoría <strong>{attr.categoria || 'No aplica'}</strong>,
+                asociado a la entidad <strong>{attr.entidad_cargo || 'No aplica'}: {attr.nombre_entidad || 'No aplica'}</strong>,
                 con fecha de reporte inicial <strong>{new Date(attr.createdAt).toLocaleString('es-CO')}</strong>.
                 De acuerdo con la información suministrada en la descripción del evento, se reporta: <strong>{attr.descripcion || 'Sin descripción inicial.'}</strong>
               </p>
@@ -1344,8 +1344,8 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                         <strong>Detalle:</strong> {sa.descripcion || 'Sin descripción.'}
                       </p>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{sa.accion || 'N/A'}</span>
-                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{sa.sistema || 'N/A'}</span>
+                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{sa.accion || 'No aplica'}</span>
+                        <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>{sa.sistema || 'No aplica'}</span>
                         {sa.temporalidad && (
                           <span style={{ fontSize: '11px', background: 'var(--surface2)', padding: '4px 8px', borderRadius: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Clock size={12} color="var(--muted)" /> Vence: {sa.temporalidad}

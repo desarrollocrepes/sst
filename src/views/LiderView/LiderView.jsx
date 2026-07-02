@@ -15,7 +15,7 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
   const itemsPerPage = 5;
 
   const [formData, setFormData] = useState({
-    categoria: '', genero: '', peso: '', talla: '',
+    categoria: '', genero: '',
     entidad_tipo: '', entidad_nombre: '', descripcion: '', archivo: null
   });
 
@@ -74,7 +74,7 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
   const handleSubmit = async () => {
     if (!selectedColaborador) return showToast('Debe seleccionar o buscar un colaborador', 'error');
     
-    if (!formData.categoria || !formData.genero || !formData.peso || !formData.talla || !formData.entidad_tipo || !formData.entidad_nombre || !formData.descripcion) {
+    if (!formData.categoria || !formData.genero || !formData.entidad_tipo || !formData.entidad_nombre || !formData.descripcion) {
       return showToast('Todos los campos del formulario son obligatorios', 'error');
     }
 
@@ -85,12 +85,10 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
         id_lider: user.document_number.toString(),
         categoria: formData.categoria,
         genero: formData.genero,
-        peso_kg: parseFloat(formData.peso) || null,
-        talla_m: parseFloat(formData.talla) || null,
         entidad_cargo: formData.entidad_tipo,
         nombre_entidad: formData.entidad_nombre.trim(),
         descripcion: formData.descripcion,
-        estado: null, 
+        estado: true, // true = abierto por defecto
         publishedAt: new Date().toISOString()
       };
 
@@ -108,7 +106,7 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
 
       if (res.ok) {
         showToast('Reporte enviado exitosamente');
-        setFormData({ categoria: '', genero: '', peso: '', talla: '', entidad_tipo: '', entidad_nombre: '', descripcion: '', archivo: null });
+        setFormData({ categoria: '', genero: '', entidad_tipo: '', entidad_nombre: '', descripcion: '', archivo: null });
         setSelectedColaborador(null);
         setManualDoc('');
         const fileInput = document.getElementById('file-upload');
@@ -210,14 +208,7 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
                   <option>Hombre</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">Peso (KG)</label>
-                <input type="number" name="peso" className="form-control" placeholder="Ej: 65" value={formData.peso} onChange={handleChange} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Talla (Metros)</label>
-                <input type="number" step="0.01" name="talla" className="form-control" placeholder="Ej: 1.65" value={formData.talla} onChange={handleChange} />
-              </div>
+              
               <div className="form-group">
                 <label className="form-label">Tipo de Entidad</label>
                 <select name="entidad_tipo" className="form-control" value={formData.entidad_tipo} onChange={handleChange}>
@@ -349,7 +340,6 @@ const LiderView = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>

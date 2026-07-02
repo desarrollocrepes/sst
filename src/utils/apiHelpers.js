@@ -3,8 +3,15 @@ export const API_REPORTES = 'https://macfer.crepesywaffles.com/api/sst-reportes'
 export const API_SEGUIMIENTOS = 'https://macfer.crepesywaffles.com/api/sst-seguimientos';
 
 export async function fetchEmployeeData(doc) {
+  const normalizedDoc = String(doc ?? '').trim();
+  if (!normalizedDoc || !/^\d+$/.test(normalizedDoc)) {
+    return null;
+  }
+
   try {
-    const res = await fetch(`${API_EMPLEADOS}?documento=${doc}`);
+    const res = await fetch(`${API_EMPLEADOS}?documento=${encodeURIComponent(normalizedDoc)}`);
+    if (!res.ok) return null;
+
     const json = await res.json();
     if (json.ok && json.data && json.data.length > 0) {
       return json.data[0];
@@ -44,7 +51,7 @@ export const getTenure = (hireDate) => {
 };
 
 export const calcularIMC = (pesoKg, tallaM) => {
-  if (!pesoKg || !tallaM) return 'N/A';
+  if (!pesoKg || !tallaM) return 'No aplica';
   const imc = pesoKg / (tallaM * tallaM);
   return imc.toFixed(1);
 };
