@@ -18,7 +18,7 @@ const ToastContainer = ({ toasts }) => (
 const GlobalHeader = ({ user, onLogout }) => (
   <header className="app-header">
     <div className="header-brand">
-      <span>Seguridad y Salud en el Trabajo</span>
+      <span></span>
     </div>
     <div className="user-info">
       <div className="user-details">

@@ -6,61 +6,13 @@ import {
   AlertOctagon, TrendingUp, Zap 
 } from 'lucide-react';
 import { 
-  Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, 
-  LinearScale, BarElement 
-} from 'chart.js';
-import { Doughnut, Bar } from 'react-chartjs-2';
-import { 
   API_REPORTES, API_SEGUIMIENTOS, fetchEmployeeData, 
   getStrapiErrorMessage, getAge, getTenure, calcularIMC 
 } from '../../utils/apiHelpers';
-
-// ============================================================================
-// CONFIGURACIÓN DE GRÁFICOS (CHART.JS)
-// ============================================================================
-
-const customDataLabelsPlugin = {
-  id: 'customDataLabelsPlugin',
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    ctx.save();
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    chart.data.datasets.forEach((dataset, i) => {
-      const meta = chart.getDatasetMeta(i);
-      const total = dataset.data.reduce((a, b) => a + b, 0);
-
-      meta.data.forEach((element, index) => {
-        const val = dataset.data[index];
-        if (val > 0) {
-          const perc = total > 0 ? Math.round((val / total) * 100) : 0;
-          const text = `${val} (${perc}%)`;
-          
-          const position = element.tooltipPosition();
-          if (chart.config.type === 'doughnut') {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, position.x, position.y);
-          } else if (chart.config.type === 'bar') {
-             if (chart.options.indexAxis === 'y') {
-                 ctx.fillStyle = '#1e293b';
-                 ctx.textAlign = 'left';
-                 ctx.fillText(text, position.x + 5, position.y);
-             } else {
-                 ctx.fillStyle = '#1e293b';
-                 ctx.textAlign = 'center';
-                 ctx.fillText(text, position.x, position.y - 12);
-             }
-          }
-        }
-      });
-    });
-    ctx.restore();
-  }
-};
-
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, customDataLabelsPlugin);
+import { 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, 
+  PieChart, Pie, Cell, Legend as RechartsLegend, LabelList
+} from 'recharts';
 
 // ============================================================================
 // FUNCIONES AUXILIARES (LÓGICA PURA)
@@ -464,9 +416,13 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
                   <label className="form-label">Acción Realizada</label>
                   <select name="accion" className="form-control" value={form.accion} onChange={handleChange}>
                     <option value="" disabled>Seleccione...</option>
-                    <option>Compromiso de autocuidado</option><option>Acta de seguimiento</option>
-                    <option>Autorización de Lonchera</option><option>Reincorporacion laboral</option>
-                    <option>Cierre de reincorporacion</option><option>Otro</option>
+                    <option>Compromiso de autocuidado</option>
+                    <option>Acta de seguimiento</option>
+                    <option>Autorización de Lonchera</option>
+                    <option>Reincorporacion laboral</option>
+                    <option>Cierre de reincorporacion</option>
+                    <option>Seguimiento</option>
+                    <option>Otro</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -506,6 +462,16 @@ const SSTModal = ({ reporte, user, onClose, onRefresh, showToast, setLoading, em
 // ============================================================================
 // DASHBOARD (SSTDashboard)
 // ============================================================================
+
+const COFFEE_PALETTE = [
+  '#3E2723', // Café muy oscuro
+  '#5D4037', // Marrón oscuro
+  '#795548', // Marrón medio
+  '#8D6E63', // Marrón claro / Mocha
+  '#A1887F', // Café con leche
+  '#BCAAA4', // Latte cálido
+  '#D7CCC8'  // Crema
+];
 
 const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) => {
   const [reportes, setReportes] = useState([]);
@@ -636,9 +602,8 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
   const currentItems = filteredReportes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // ============================================================================
-  // CÁLCULO DE GRÁFICOS (Extraídos para limpieza)
+  // CÁLCULO DE GRÁFICOS
   // ============================================================================
-  const PALETTE = ['#503629'];
 
   const imcStats = useMemo(() => {
     let total = 0, bajo = 0, normal = 0, sobrepeso = 0, obesidad = 0;
@@ -656,45 +621,38 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
        sobrepeso: total ? Math.round((sobrepeso/total)*100) : 0, obesidad: total ? Math.round((obesidad/total)*100) : 0,
     }
   }, [reportes]);
-
-  const getChartData = (mapCallback, sliceAmount = 5, customColors = null, isDoughnut = false) => {
+  
+  const getRechartsData = (mapCallback, sliceAmount = 5) => {
     const map = {};
     reportes.forEach(mapCallback(map));
-    let keys = Object.keys(map);
-    let values = Object.values(map);
     
+    let entries = Object.entries(map);
     if (sliceAmount) {
-      const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, sliceAmount);
-      keys = sorted.map(a => a[0]);
-      values = sorted.map(a => a[1]);
+      entries = entries.sort((a, b) => b[1] - a[1]).slice(0, sliceAmount);
     } else {
-      keys = keys.filter(k => map[k] > 0);
-      values = keys.map(k => map[k]);
+      entries = entries.filter(([, val]) => val > 0);
     }
     
-    return {
-      labels: keys,
-      datasets: [{ data: values, backgroundColor: customColors || PALETTE[0], borderRadius: isDoughnut ? 0 : 4, borderWidth: isDoughnut ? 0 : undefined }]
-    };
+    return entries.map(([name, value]) => ({ name, value }));
   };
 
   const estadoData = useMemo(() => {
     const map = { 'Abierto': 0, 'Cerrado': 0, 'En seg.': 0 };
     reportesConMeta.forEach(r => map[r.displayEstado === false ? 'Cerrado' : r.displayEstado === true ? 'Abierto' : 'En seg.']++);
-    return { labels: Object.keys(map), datasets: [{ data: Object.values(map), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'], borderWidth: 0 }] };
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [reportesConMeta]);
 
-  const accData = useMemo(() => getChartData(map => r => {
+  const accData = useMemo(() => getRechartsData(map => r => {
     const segs = r.attributes.sst_seguimientos?.data || [];
     const acc = segs.length > 0 ? (segs[segs.length - 1].attributes.accion || 'Otro') : 'Pendiente';
     map[acc] = (map[acc] || 0) + 1;
-  }, 5, PALETTE[0]), [reportes]);
+  }, 5), [reportes]);
 
-  const sisData = useMemo(() => getChartData(map => r => {
+  const sisData = useMemo(() => getRechartsData(map => r => {
     const segs = r.attributes.sst_seguimientos?.data || [];
     const sys = segs.length > 0 ? (segs[segs.length - 1].attributes.sistema || 'Otro') : 'Sin Asignar';
     map[sys] = (map[sys] || 0) + 1;
-  }, 5, PALETTE[4]), [reportes]);
+  }, 5), [reportes]);
 
   const generoData = useMemo(() => {
     const map = { 'Mujer': 0, 'Hombre': 0, 'Sin Asig.': 0 };
@@ -705,10 +663,10 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
       else if (g === 'Hombre' || g === 'Masculino') map['Hombre']++;
       else map['Sin Asig.']++;
     });
-    return { labels: Object.keys(map), datasets: [{ data: Object.values(map), backgroundColor: ['#ec4899', '#3b82f6', '#cbd5e1'], borderWidth: 0 }] };
+    return Object.entries(map).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }));
   }, [reportes, empCache]);
 
-  const edadData = useMemo(() => getChartData(map => r => {
+  const edadData = useMemo(() => getRechartsData(map => r => {
     const emp = empCache[r.attributes.id_empleado];
     const age = emp ? getAge(emp.birthday || emp.fecha_nacimiento) : null;
     if (age !== null && !isNaN(age)) {
@@ -717,29 +675,25 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
       else if (age <= 49) map['40-49'] = (map['40-49'] || 0) + 1; else if (age <= 59) map['50-59'] = (map['50-59'] || 0) + 1;
       else map['60+'] = (map['60+'] || 0) + 1;
     }
-  }, null, PALETTE[2]), [reportes, empCache]);
+  }, null), [reportes, empCache]);
 
-  const antiguedadData = useMemo(() => getChartData(map => r => {
+  const antiguedadData = useMemo(() => getRechartsData(map => r => {
     const emp = empCache[r.attributes.id_empleado];
     const t = emp ? getTenure(emp.ingreso || emp.fecha_ingreso) : null;
     if (t === null || isNaN(t)) map['No aplica'] = (map['No aplica'] || 0) + 1;
     else if (t <= 1) map['0-1 año'] = (map['0-1 año'] || 0) + 1; else if (t <= 3) map['1-3 años'] = (map['1-3 años'] || 0) + 1;
     else if (t <= 5) map['3-5 años'] = (map['3-5 años'] || 0) + 1; else map['5+ años'] = (map['5+ años'] || 0) + 1;
-  }, null, PALETTE[5]), [reportes, empCache]);
+  }, null), [reportes, empCache]);
 
-  const diagData = useMemo(() => getChartData(map => r => { 
+  const diagData = useMemo(() => getRechartsData(map => r => { 
     const c = r.attributes.categoria || 'Sin Diagnóstico'; map[c] = (map[c] || 0) + 1; 
-  }, 5, PALETTE[6]), [reportes]);
+  }, 5), [reportes]);
 
-  const entidadData = useMemo(() => getChartData(map => r => {
+  const entidadData = useMemo(() => getRechartsData(map => r => {
     const ent = r.attributes.entidad_cargo;
-    map[ent === 'EPS' ? 'EPS' : ent === 'ARL' ? 'ARL' : ent === 'Medicina Prepagada' ? 'Medicina Prepagada' : 'Otra'] = (map[ent] || 0) + 1;
-  }, null, ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b']), [reportes]);
-
-  const barOptionsH = { responsive: true, maintainAspectRatio: false, indexAxis: 'y', layout: { padding: { right: 35 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } } };
-  const barOptionsV = { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } }, y: { display: false } } };
-  const doughnutOptions = { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: { enabled: false } } };
-
+    map[ent === 'EPS' ? 'EPS' : ent === 'ARL' ? 'ARL' : ent === 'Medicina Prepagada' ? 'Medicina P.' : 'Otra'] = (map[ent] || 0) + 1;
+  }, null), [reportes]);
+  
   // ============================================================================
   // RENDER PRINCIPAL
   // ============================================================================
@@ -759,20 +713,153 @@ const SSTDashboard = ({ user, showToast, setLoading, empCache, setEmpCache }) =>
         <div className="chart-card">
           <h3 className="chart-title">IMC</h3>
           <div style={{ display: 'flex',  alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-            <ProgressCircle porcentaje={imcStats.bajo} color="#503629" label="Bajo Peso" />
-            <ProgressCircle porcentaje={imcStats.normal} color="#503629" label="Normal" />
-            <ProgressCircle porcentaje={imcStats.sobrepeso} color="#503629" label="Sobrepeso" />
-            <ProgressCircle porcentaje={imcStats.obesidad} color="#503629" label="Obesidad" />
+            {/* Usamos el color #5D4037 de la nueva paleta para los círculos */}
+            <ProgressCircle porcentaje={imcStats.bajo} color="#5D4037" label="Bajo Peso" />
+            <ProgressCircle porcentaje={imcStats.normal} color="#795548" label="Normal" />
+            <ProgressCircle porcentaje={imcStats.sobrepeso} color="#A1887F" label="Sobrepeso" />
+            <ProgressCircle porcentaje={imcStats.obesidad} color="#3E2723" label="Obesidad" />
           </div>
         </div>
-        <div className="chart-card"><div className="chart-title">Estado de Casos</div><div className="chart-wrap"><Doughnut data={estadoData} options={doughnutOptions} /></div></div>
-        <div className="chart-card"><div className="chart-title">Por Entidad</div><div className="chart-wrap"><Bar data={entidadData} options={barOptionsV} /></div></div>
-        <div className="chart-card"><div className="chart-title">Por Edad</div><div className="chart-wrap"><Bar data={edadData} options={barOptionsV} /></div></div>
-        <div className="chart-card"><div className="chart-title">Acción Realizada</div><div className="chart-wrap"><Bar data={accData} options={barOptionsH} /></div></div>
-        <div className="chart-card"><div className="chart-title">Sistema Afectado</div><div className="chart-wrap"><Bar data={sisData} options={barOptionsH} /></div></div>
-        <div className="chart-card"><div className="chart-title">Por Género</div><div className="chart-wrap"><Doughnut data={generoData} options={doughnutOptions} /></div></div>
-        <div className="chart-card"><div className="chart-title">Por Antigüedad</div><div className="chart-wrap"><Bar data={antiguedadData} options={barOptionsV} /></div></div>
-        <div className="chart-card"><div className="chart-title">Top Diagnósticos</div><div className="chart-wrap"><Bar data={diagData} options={barOptionsH} /></div></div>
+
+        {/* GRÁFICO DE DONA: ESTADO */}
+        <div className="chart-card">
+          <div className="chart-title">Estado de Casos</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={estadoData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
+                  {estadoData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                </Pie>
+                <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
+                <RechartsLegend wrapperStyle={{ fontSize: '12px', marginTop: '10px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO BARRAS VERTICALES: ENTIDAD */}
+        <div className="chart-card">
+          <div className="chart-title">Por Entidad</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={entidadData} margin={{ top: 20, right: 0, left: -25, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {entidadData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                  <LabelList dataKey="value" position="top" style={{ fontSize: '11px', fill: '#475569', fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO BARRAS VERTICALES: EDAD */}
+        <div className="chart-card">
+          <div className="chart-title">Por Edad</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+             <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={edadData} margin={{ top: 20, right: 0, left: -25, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {edadData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                  <LabelList dataKey="value" position="top" style={{ fontSize: '11px', fill: '#475569', fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO BARRAS HORIZONTALES: ACCIÓN */}
+        <div className="chart-card">
+          <div className="chart-title">Acción Realizada</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={accData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={90} axisLine={false} tickLine={false} />
+                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                  {accData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                  <LabelList dataKey="value" position="right" style={{ fontSize: '11px', fill: '#475569', fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO BARRAS HORIZONTALES: SISTEMA */}
+        <div className="chart-card">
+          <div className="chart-title">Sistema Afectado</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sisData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={90} axisLine={false} tickLine={false} />
+                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                  {sisData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                  <LabelList dataKey="value" position="right" style={{ fontSize: '11px', fill: '#475569', fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO DE DONA: GÉNERO */}
+        <div className="chart-card">
+          <div className="chart-title">Por Género</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={generoData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
+                  {generoData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                </Pie>
+                <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
+                <RechartsLegend wrapperStyle={{ fontSize: '12px', marginTop: '10px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO BARRAS VERTICALES: ANTIGÜEDAD */}
+        <div className="chart-card">
+          <div className="chart-title">Por Antigüedad</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+             <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={antiguedadData} margin={{ top: 20, right: 0, left: -25, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {antiguedadData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                  <LabelList dataKey="value" position="top" style={{ fontSize: '11px', fill: '#475569', fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICO BARRAS HORIZONTALES: DIAGNÓSTICOS */}
+        <div className="chart-card">
+          <div className="chart-title">Top Diagnósticos</div>
+          <div className="chart-wrap" style={{ height: '220px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={diagData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} width={90} axisLine={false} tickLine={false} />
+                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                  {diagData.map((entry, index) => <Cell key={`cell-${index}`} fill={COFFEE_PALETTE[index % COFFEE_PALETTE.length]} />)}
+                  <LabelList dataKey="value" position="right" style={{ fontSize: '11px', fill: '#475569', fontWeight: 600 }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       <div className="cases-section">
