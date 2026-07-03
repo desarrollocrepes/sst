@@ -1,67 +1,119 @@
+/* Login.css */
+
 .login-wrapper {
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg);
-  padding: 20px;
+  min-height: 100vh;
+  background-color: var(--bg-color, #f3f4f6);
 }
 
 .login-card {
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   width: 100%;
   max-width: 400px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  overflow: hidden;
+}
+
+.login-header {
+  background-color: var(--primary);
+  padding: 2rem;
   text-align: center;
-  padding: 40px 30px;
-  box-shadow: var(--shadow);
-  border-radius: 16px;
-  background: var(--surface);
+  color: #ffffff;
 }
 
-.login-logo {
-  width: 64px;
-  height: 64px;
-  background: var(--accent);
-  color: white;
-  border-radius: 16px;
-  display: inline-flex;
+.login-body {
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-  box-shadow: 0 10px 25px -5px rgba(80, 54, 41, 0.4);
 }
 
-.login-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  color: var(--accent);
-  line-height: 1.3;
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
 }
 
-.login-sub {
-  color: var(--muted);
-  font-size: 14px;
-  margin-bottom: 32px;
-}
-
-.login-form-group {
-  text-align: left;
-  margin-bottom: 24px;
-}
-
-.login-btn-submit {
+.form-input {
   width: 100%;
-  margin-top: 10px;
-  padding: 12px;
-  font-size: 15px;
+  padding: 0.8rem 1rem 0.8rem 2.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(37, 99, 235, 0.2));
+}
+
+.form-input:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   Clases adicionales necesarias (Alertas y Botones)
+   ========================================= */
+
+.btn-w-full {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--primary);
+  color: #ffffff;
+}
+
+.login-submit-btn {
+  padding: 0.8rem;
+  font-size: 1rem;
   font-weight: 600;
-  transition: all 0.2s ease-in-out;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
 }
 
-.login-btn-submit:hover {
-  transform: translateY(-1px);
+.login-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-.login-btn-submit:active {
-  transform: translateY(0);
+/* Animación para el Loader de Lucide-React */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
